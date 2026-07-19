@@ -1,42 +1,73 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
 import useAuthStore from "../../store/authStore";
 
 function OTPVerify({ phone }) {
   const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
   const setMember = useAuthStore((state) => state.setMember);
 
-  const handleVerify = () => {
-    // Abhi sirf check kar rahe hain OTP 4 digit ka hai
-    if (otp.length === 4) {
-      // Fake user data — baad mein Supabase se aayega
-      setMember({
-        name: "Rahul Sharma",
-        phone: phone,
-        plan: "Monthly",
-        expires_at: "2026-08-18",
-      });
+  const handleVerify = async () => {
+    if (otp.length !== 4) return;
+    setLoading(true);
+    setError("");
+
+    try {
+      // Step 1 — Backend se OTP verify karo
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/auth/verify-otp`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, otp }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setError(data.message || "Invalid OTP");
+        setLoading(false);
+        return;
+      }
+
+      // Step 2 — Supabase se member dhundho
+      const { data: member, error: dbError } = await supabase
+        .from("members")
+        .select("*")
+        .eq("phone", phone)
+        .single();
+
+      if (dbError || !member) {
+        setError("Member not found. Contact your gym owner.");
+        setLoading(false);
+        return;
+      }
+
+      // Step 3 — Login successful
+      setMember(member);
       navigate("/home");
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0d0d14] flex flex-col items-center justify-center px-6">
-      {/* Icon */}
       <div className="text-5xl mb-6">🔐</div>
 
-      {/* Title */}
       <h1 className="text-3xl font-black text-white tracking-tight">
         Enter OTP
       </h1>
-
-      {/* Subtitle */}
       <p className="text-slate-400 text-sm mt-2 text-center">
         4 digit code sent to +91 {phone}
       </p>
 
-      {/* OTP Input */}
       <div className="w-full max-w-sm mt-8">
         <input
           type="tel"
@@ -48,20 +79,26 @@ function OTPVerify({ phone }) {
         />
       </div>
 
-      {/* Verify Button */}
+      {error && (
+        <p className="text-red-400 text-xs mt-2 text-center">{error}</p>
+      )}
+
       <div className="w-full max-w-sm mt-4">
         <button
           onClick={handleVerify}
-          className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm"
+          disabled={otp.length !== 4 || loading}
+          className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
         >
-          Verify & Login →
+          {loading ? "⏳ Verifying..." : "Verify & Login →"}
         </button>
       </div>
 
-      {/* Resend */}
       <p className="text-slate-500 text-xs mt-6">
         Didn't receive?{" "}
-        <span className="text-purple-400 font-bold cursor-pointer">
+        <span
+          onClick={() => window.location.reload()}
+          className="text-purple-400 font-bold cursor-pointer"
+        >
           Resend OTP
         </span>
       </p>
