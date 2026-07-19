@@ -1,89 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-// Sample data — baad mein Supabase se aayega
-const allMembers = [
-  {
-    id: 1,
-    name: "Amit Kumar",
-    memberId: "GYM-0001",
-    plan: "Monthly",
-    status: "expiring",
-    phone: "9876543210",
-    expires: "20 Jul 2026",
-  },
-  {
-    id: 2,
-    name: "Priya Singh",
-    memberId: "GYM-0002",
-    plan: "Monthly",
-    status: "active",
-    phone: "9876543211",
-    expires: "21 Aug 2026",
-  },
-  {
-    id: 3,
-    name: "Suresh Rao",
-    memberId: "GYM-0003",
-    plan: "Quarterly",
-    status: "active",
-    phone: "9876543212",
-    expires: "24 Oct 2026",
-  },
-  {
-    id: 4,
-    name: "Rohit Kapoor",
-    memberId: "GYM-0004",
-    plan: "Yearly",
-    status: "paused",
-    phone: "9876543213",
-    expires: "18 Jan 2027",
-  },
-  {
-    id: 5,
-    name: "Meena Verma",
-    memberId: "GYM-0005",
-    plan: "Monthly",
-    status: "expired",
-    phone: "9876543214",
-    expires: "10 Jul 2026",
-  },
-  {
-    id: 6,
-    name: "Vikram Shah",
-    memberId: "GYM-0006",
-    plan: "Monthly",
-    status: "active",
-    phone: "9876543215",
-    expires: "25 Aug 2026",
-  },
-  {
-    id: 7,
-    name: "Neha Gupta",
-    memberId: "GYM-0007",
-    plan: "Quarterly",
-    status: "active",
-    phone: "9876543216",
-    expires: "15 Sep 2026",
-  },
-];
+import { supabase } from "../../lib/supabase";
 
 const statusConfig = {
   active: { label: "Active", color: "bg-green-500/20 text-green-400" },
-  expiring: { label: "Expiring", color: "bg-red-500/20 text-red-400" },
-  expired: { label: "Expired", color: "bg-red-500/20 text-red-400" },
+  expiring: { label: "Expiring", color: "bg-red-500/20   text-red-400" },
+  expired: { label: "Expired", color: "bg-red-500/20   text-red-400" },
   paused: { label: "Paused", color: "bg-amber-500/20 text-amber-400" },
 };
 
 function MembersList() {
   const navigate = useNavigate();
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  const filtered = allMembers.filter((m) => {
+  // Supabase se members fetch karo
+  useEffect(() => {
+    fetchMembers();
+  }, []);
+
+  const fetchMembers = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("members")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log("Error:", error);
+    } else {
+      setMembers(data);
+    }
+    setLoading(false);
+  };
+
+  const filtered = members.filter((m) => {
     const matchSearch =
       m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.memberId.includes(search);
+      m.member_id.includes(search);
     const matchFilter = filter === "all" || m.status === filter;
     return matchSearch && matchFilter;
   });
@@ -115,7 +71,7 @@ function MembersList() {
       {/* Filter Tabs */}
       <div className="flex gap-2 mb-4">
         {[
-          { key: "all", label: `All (${allMembers.length})` },
+          { key: "all", label: `All (${members.length})` },
           { key: "active", label: "Active" },
           { key: "expiring", label: "Expiring" },
           { key: "expired", label: "Expired" },
@@ -135,42 +91,47 @@ function MembersList() {
         ))}
       </div>
 
+      {/* Loading */}
+      {loading && (
+        <div className="text-center py-12">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-slate-400 text-sm">Loading members...</p>
+        </div>
+      )}
+
       {/* Members List */}
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl divide-y divide-white/5">
-        {filtered.map((m) => (
-          <div
-            key={m.id}
-            onClick={() => navigate(`/owner/members/${m.id}`)}
-            className="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-white/5"
-          >
-            {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
-              {m.name[0]}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1">
-              <p className="text-white text-sm font-bold">{m.name}</p>
-              <p className="text-slate-400 text-xs mt-0.5">
-                {m.memberId} · {m.plan}
-              </p>
-            </div>
-
-            {/* Status */}
-            <span
-              className={`text-xs font-bold px-2 py-1 rounded-full ${statusConfig[m.status].color}`}
+      {!loading && (
+        <div className="bg-[#1a1a2e] border border-white/7 rounded-xl divide-y divide-white/5">
+          {filtered.map((m) => (
+            <div
+              key={m.id}
+              onClick={() => navigate(`/owner/members/${m.id}`)}
+              className="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-white/5"
             >
-              {statusConfig[m.status].label}
-            </span>
-          </div>
-        ))}
+              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
+                {m.name[0]}
+              </div>
+              <div className="flex-1">
+                <p className="text-white text-sm font-bold">{m.name}</p>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  {m.member_id} · {m.plan}
+                </p>
+              </div>
+              <span
+                className={`text-xs font-bold px-2 py-1 rounded-full ${statusConfig[m.status]?.color || "bg-gray-500/20 text-gray-400"}`}
+              >
+                {statusConfig[m.status]?.label || m.status}
+              </span>
+            </div>
+          ))}
 
-        {filtered.length === 0 && (
-          <div className="text-center py-8 text-slate-500 text-sm">
-            No members found
-          </div>
-        )}
-      </div>
+          {filtered.length === 0 && !loading && (
+            <div className="text-center py-8 text-slate-500 text-sm">
+              No members found
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

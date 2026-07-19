@@ -1,9 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
+
+const planPrices = {
+  monthly: 1500,
+  quarterly: 4000,
+  yearly: 15000,
+};
 
 function AddMember() {
   const navigate = useNavigate();
-
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -13,20 +20,71 @@ function AddMember() {
     joinDate: new Date().toISOString().split("T")[0],
   });
 
-  const planPrices = {
-    monthly: 1500,
-    quarterly: 4000,
-    yearly: 15000,
-  };
-
   const set = (key) => (e) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
-  const handleSubmit = () => {
-    if (!form.name || !form.phone) return;
-    // Baad mein Supabase mein save karenge
-    alert(`Member "${form.name}" added successfully!`);
-    navigate("/owner/members");
+  // Expiry date calculate karo
+  const getExpiry = (joinDate, plan) => {
+    const date = new Date(joinDate);
+    if (plan === "monthly") date.setMonth(date.getMonth() + 1);
+    if (plan === "quarterly") date.setMonth(date.getMonth() + 3);
+    if (plan === "yearly") date.setFullYear(date.getFullYear() + 1);
+    return date.toISOString().split("T")[0];
+  };
+
+  // Member ID generate karo
+  const getMemberId = async () => {
+    const { count } = await supabase
+      .from("members")
+      .select("*", { count: "exact", head: true });
+    return `GYM-${String((count || 0) + 1).padStart(4, "0")}`;
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name || form.phone.length !== 10) return;
+    setLoading(true);
+
+    try {
+      // Member ID generate karo
+      const memberId = await getMemberId();
+      const expiresAt = getExpiry(form.joinDate, form.plan);
+
+      // Supabase mein member save karo
+      const { data: member, error: memberError } = await supabase
+        .from("members")
+        .insert({
+          member_id: memberId,
+          name: form.name,
+          phone: form.phone,
+          plan: form.plan,
+          joined_at: form.joinDate,
+          expires_at: expiresAt,
+          status: "active",
+        })
+        .select()
+        .single();
+
+      if (memberError) throw memberError;
+
+      // Payment bhi save karo
+      const { error: paymentError } = await supabase.from("payments").insert({
+        member_id: member.id,
+        amount: planPrices[form.plan],
+        method: form.paymentMethod,
+        upi_ref: form.upiRef || null,
+        plan: form.plan,
+      });
+
+      if (paymentError) throw paymentError;
+
+      alert(`✅ ${form.name} added successfully! Member ID: ${memberId}`);
+      navigate("/owner/members");
+    } catch (error) {
+      console.log("Error:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -145,7 +203,7 @@ function AddMember() {
           </div>
         </div>
 
-        {/* UPI Ref — sirf tab dikhao jab UPI select ho */}
+        {/* UPI Ref */}
         {form.paymentMethod === "upi" && (
           <div>
             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -154,7 +212,7 @@ function AddMember() {
             <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
               <span>🔗</span>
               <input
-                placeholder="Transaction ID / Ref number"
+                placeholder="Transaction ID"
                 value={form.upiRef}
                 onChange={set("upiRef")}
                 className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600"
@@ -179,29 +237,26 @@ function AddMember() {
           </div>
         </div>
 
-        {/* Summary */}
+        {/* Expiry Preview */}
         <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
-          <p className="text-green-400 text-xs font-bold mb-1">📋 Summary</p>
-          <p className="text-slate-300 text-xs">
-            Plan:{" "}
-            <span className="text-white font-bold capitalize">{form.plan}</span>{" "}
-            — ₹{planPrices[form.plan].toLocaleString("en-IN")}
+          <p className="text-green-400 text-xs font-bold">
+            📅 Membership Valid Until
           </p>
-          <p className="text-slate-300 text-xs mt-0.5">
-            Method:{" "}
-            <span className="text-white font-bold uppercase">
-              {form.paymentMethod}
-            </span>
+          <p className="text-white font-black text-lg mt-1">
+            {new Date(getExpiry(form.joinDate, form.plan)).toLocaleDateString(
+              "en-IN",
+              { day: "2-digit", month: "short", year: "numeric" },
+            )}
           </p>
         </div>
 
         {/* Submit */}
         <button
           onClick={handleSubmit}
-          disabled={!form.name || form.phone.length !== 10}
+          disabled={!form.name || form.phone.length !== 10 || loading}
           className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
         >
-          ✅ Add Member
+          {loading ? "⏳ Adding Member..." : "✅ Add Member"}
         </button>
       </div>
     </div>
