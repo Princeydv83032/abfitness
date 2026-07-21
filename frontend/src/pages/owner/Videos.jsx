@@ -1,71 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-const exercises = [
-  {
-    id: 1,
-    name: "Bench Press",
-    muscle: "Chest",
-    day: "Monday",
-    sets: 3,
-    reps: 12,
-    duration: "2:14",
-  },
-  {
-    id: 2,
-    name: "Bicep Curl",
-    muscle: "Arms",
-    day: "Tuesday",
-    sets: 3,
-    reps: 12,
-    duration: "1:48",
-  },
-  {
-    id: 3,
-    name: "Tricep Pushdown",
-    muscle: "Arms",
-    day: "Tuesday",
-    sets: 3,
-    reps: 15,
-    duration: "1:55",
-  },
-  {
-    id: 4,
-    name: "Shoulder Press",
-    muscle: "Shoulders",
-    day: "Wednesday",
-    sets: 3,
-    reps: 10,
-    duration: "2:05",
-  },
-  {
-    id: 5,
-    name: "Pull Ups",
-    muscle: "Back",
-    day: "Thursday",
-    sets: 3,
-    reps: 10,
-    duration: "1:55",
-  },
-  {
-    id: 6,
-    name: "Squats",
-    muscle: "Legs",
-    day: "Friday",
-    sets: 4,
-    reps: 10,
-    duration: "3:02",
-  },
-  {
-    id: 7,
-    name: "Plank",
-    muscle: "Core",
-    day: "Saturday",
-    sets: 3,
-    reps: 60,
-    duration: "1:30",
-  },
-];
+import { supabase } from "../../lib/supabase";
 
 const muscleColors = {
   Chest: "bg-purple-600/20 text-purple-400",
@@ -78,11 +13,38 @@ const muscleColors = {
 
 function Videos() {
   const navigate = useNavigate();
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
 
   const muscles = ["All", "Chest", "Arms", "Shoulders", "Back", "Legs", "Core"];
+
+  useEffect(() => {
+    fetchExercises();
+  }, []);
+
+  const fetchExercises = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("exercises")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error) setExercises(data);
+    setLoading(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Delete this exercise?")) return;
+    const { error } = await supabase.from("exercises").delete().eq("id", id);
+
+    if (!error) fetchExercises();
+  };
+
   const filtered =
-    filter === "All" ? exercises : exercises.filter((e) => e.muscle === filter);
+    filter === "All"
+      ? exercises
+      : exercises.filter((e) => e.muscle_group === filter);
 
   return (
     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
@@ -120,56 +82,95 @@ function Videos() {
         ))}
       </div>
 
-      {/* Video Grid */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        {filtered.map((ex) => (
-          <div
-            key={ex.id}
-            className="bg-[#1a1a2e] border border-white/7 rounded-xl overflow-hidden"
-          >
-            {/* Thumbnail */}
-            <div className="h-24 bg-gradient-to-br from-purple-900 to-purple-700 flex items-center justify-center relative">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-sm">
-                ▶
-              </div>
-              <div
-                className={`absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded ${muscleColors[ex.muscle]}`}
-              >
-                {ex.muscle}
-              </div>
-              <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                {ex.duration}
-              </div>
-            </div>
+      {/* Loading */}
+      {loading && (
+        <div className="text-center py-12">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-slate-400 text-sm">Loading videos...</p>
+        </div>
+      )}
 
-            {/* Info */}
-            <div className="p-2.5">
-              <p className="text-white text-xs font-bold">{ex.name}</p>
-              <p className="text-slate-400 text-[10px] mt-0.5">
-                {ex.sets} × {ex.reps} · {ex.day}
-              </p>
-              {/* Delete */}
-              <button className="mt-2 text-red-400 text-[10px] font-bold">
-                🗑️ Delete
+      {/* Video Grid */}
+      {!loading && (
+        <>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {filtered.map((ex) => (
+              <div
+                key={ex.id}
+                className="bg-[#1a1a2e] border border-white/7 rounded-xl overflow-hidden"
+              >
+                {/* Thumbnail / Video Preview */}
+                <div className="h-24 bg-gradient-to-br from-purple-900 to-purple-700 relative">
+                  {ex.video_url ? (
+                    <video
+                      src={ex.video_url}
+                      className="w-full h-full object-cover"
+                      onClick={() => window.open(ex.video_url, "_blank")}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-sm">
+                        ▶
+                      </div>
+                    </div>
+                  )}
+                  <div
+                    className={`absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded ${muscleColors[ex.muscle_group] || "bg-gray-600/20 text-gray-400"}`}
+                  >
+                    {ex.muscle_group}
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="p-2.5">
+                  <p className="text-white text-xs font-bold">{ex.name}</p>
+                  <p className="text-slate-400 text-[10px] mt-0.5">
+                    {ex.sets} × {ex.reps} · {ex.day}
+                  </p>
+                  {ex.tip && (
+                    <p className="text-purple-400 text-[9px] mt-1">
+                      💡 {ex.tip}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => handleDelete(ex.id)}
+                    className="mt-2 text-red-400 text-[10px] font-bold"
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filtered.length === 0 && !loading && (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-3">🎥</div>
+              <p className="text-slate-400 text-sm">No videos yet</p>
+              <button
+                onClick={() => navigate("/owner/videos/upload")}
+                className="mt-4 bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl"
+              >
+                Upload First Video
               </button>
             </div>
-          </div>
-        ))}
-      </div>
+          )}
 
-      {/* Upload Zone */}
-      <div
-        onClick={() => navigate("/owner/videos/upload")}
-        className="border-2 border-dashed border-purple-500/30 rounded-xl p-6 text-center cursor-pointer"
-      >
-        <div className="text-3xl mb-2">🎥</div>
-        <p className="text-slate-400 text-sm">
-          Record or upload a new exercise video
-        </p>
-        <p className="text-purple-400 text-xs font-bold mt-1">
-          Tap to Upload →
-        </p>
-      </div>
+          {/* Upload Zone */}
+          <div
+            onClick={() => navigate("/owner/videos/upload")}
+            className="border-2 border-dashed border-purple-500/30 rounded-xl p-6 text-center cursor-pointer"
+          >
+            <div className="text-3xl mb-2">🎥</div>
+            <p className="text-slate-400 text-sm">
+              Upload a new exercise video
+            </p>
+            <p className="text-purple-400 text-xs font-bold mt-1">
+              Tap to Upload →
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }

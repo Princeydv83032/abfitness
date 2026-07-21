@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { uploadVideo } from "../../lib/cloudinary";
+import { supabase } from "../../lib/supabase";
 
 const days = [
   "Monday",
@@ -23,33 +25,72 @@ function UploadVideo() {
     reps: "12",
     tip: "",
   });
-  const [videoSelected, setVideoSelected] = useState(false);
+
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const set = (key) => (e) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
-  const handleVideoSelect = () => {
-    // Simulate video selection
-    setVideoSelected(true);
+  const handleFileSelect = (e) => {
+    const selected = e.target.files[0];
+    if (!selected) return;
+
+    // Sirf video files allow karo
+    if (!selected.type.startsWith("video/")) {
+      setError("Please select a video file");
+      return;
+    }
+
+    // Max 100MB
+    if (selected.size > 100 * 1024 * 1024) {
+      setError("Video size should be less than 100MB");
+      return;
+    }
+
+    setFile(selected);
+    setPreview(URL.createObjectURL(selected));
+    setError("");
   };
 
-  const handleUpload = () => {
-    if (!form.name || !videoSelected) return;
+  const handleUpload = async () => {
+    if (!form.name || !file) return;
     setUploading(true);
-    // Simulate upload progress
-    let p = 0;
-    const interval = setInterval(() => {
-      p += 10;
-      setProgress(p);
-      if (p >= 100) {
-        clearInterval(interval);
-        setUploading(false);
-        alert(`"${form.name}" uploaded successfully!`);
-        navigate("/owner/videos");
-      }
-    }, 200);
+    setError("");
+    setProgress(0);
+
+    try {
+      // Step 1 — Cloudinary pe upload karo
+      const videoUrl = await uploadVideo(file, (percent) => {
+        setProgress(percent);
+      });
+
+      // Step 2 — Supabase mein save karo
+      const { error: dbError } = await supabase.from("exercises").insert({
+        name: form.name,
+        muscle_group: form.muscle,
+        day: form.day,
+        sets: parseInt(form.sets),
+        reps: parseInt(form.reps),
+        tip: form.tip || null,
+        video_url: videoUrl,
+        order_index: 0,
+      });
+
+      if (dbError) throw dbError;
+
+      setSuccess(true);
+      setTimeout(() => navigate("/owner/videos"), 1500);
+    } catch (err) {
+      console.log("Upload error:", err);
+      setError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -65,33 +106,48 @@ function UploadVideo() {
         <h1 className="text-xl font-black text-white">Upload Exercise</h1>
       </div>
 
-      {/* Video Upload Area */}
-      <div
-        onClick={handleVideoSelect}
-        className={`h-32 rounded-2xl flex flex-col items-center justify-center cursor-pointer mb-5 border-2 border-dashed transition-all
-          ${
-            videoSelected
-              ? "bg-purple-900/30 border-purple-500"
-              : "bg-[#1a1a2e] border-white/10"
-          }`}
-      >
-        {videoSelected ? (
-          <>
-            <div className="text-3xl mb-1">🎥</div>
-            <p className="text-white text-sm font-bold">exercise_video.mp4</p>
-            <div className="bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full mt-1">
-              ✓ Video Selected
-            </div>
-          </>
-        ) : (
-          <>
+      {/* Video Select Area */}
+      <div className="mb-5">
+        {!preview ? (
+          <label
+            htmlFor="video-input"
+            className="h-32 rounded-2xl flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-white/10 bg-[#1a1a2e]"
+          >
             <div className="text-3xl mb-1">📱</div>
             <p className="text-slate-400 text-sm">
               Tap to select video from gallery
             </p>
-            <p className="text-slate-500 text-xs mt-0.5">or record a new one</p>
-          </>
+            <p className="text-slate-500 text-xs mt-0.5">Max 100MB</p>
+          </label>
+        ) : (
+          <div className="relative h-48 rounded-2xl overflow-hidden bg-black">
+            <video
+              src={preview}
+              className="w-full h-full object-cover"
+              controls
+            />
+            <button
+              onClick={() => {
+                setFile(null);
+                setPreview(null);
+              }}
+              className="absolute top-2 right-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
+            >
+              ✕
+            </button>
+            <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+              ✓ Video Selected
+            </div>
+          </div>
         )}
+
+        <input
+          id="video-input"
+          type="file"
+          accept="video/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
       </div>
 
       {/* Upload Progress */}
@@ -110,8 +166,24 @@ function UploadVideo() {
         </div>
       )}
 
+      {/* Success */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-3 mb-4 text-center">
+          <p className="text-green-400 font-bold">
+            ✅ Exercise uploaded successfully!
+          </p>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-3 mb-4">
+          <p className="text-red-400 text-sm">{error}</p>
+        </div>
+      )}
+
       <div className="space-y-4">
-        {/* Exercise Name */}
+        {/* Name */}
         <div>
           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
             Exercise Name *
@@ -213,11 +285,11 @@ function UploadVideo() {
         {/* Submit */}
         <button
           onClick={handleUpload}
-          disabled={!form.name || !videoSelected || uploading}
+          disabled={!form.name || !file || uploading}
           className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
         >
           {uploading
-            ? `Uploading... ${progress}%`
+            ? `⏳ Uploading... ${progress}%`
             : "📤 Publish to All Members"}
         </button>
       </div>
