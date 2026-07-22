@@ -1,134 +1,105 @@
-import { useNavigate, useParams } from "react-router-dom";
-
-const allMembers = [
-  {
-    id: 1,
-    name: "Amit Kumar",
-    memberId: "GYM-0001",
-    plan: "Monthly",
-    status: "expiring",
-    phone: "9876543210",
-    expires: "20 Jul 2026",
-    joined: "20 Jan 2026",
-    attendance: 22,
-    totalPaid: 9000,
-  },
-  {
-    id: 2,
-    name: "Priya Singh",
-    memberId: "GYM-0002",
-    plan: "Monthly",
-    status: "active",
-    phone: "9876543211",
-    expires: "21 Aug 2026",
-    joined: "21 Jan 2026",
-    attendance: 18,
-    totalPaid: 7500,
-  },
-  {
-    id: 3,
-    name: "Suresh Rao",
-    memberId: "GYM-0003",
-    plan: "Quarterly",
-    status: "active",
-    phone: "9876543212",
-    expires: "24 Oct 2026",
-    joined: "24 Jan 2026",
-    attendance: 25,
-    totalPaid: 12000,
-  },
-  {
-    id: 4,
-    name: "Rohit Kapoor",
-    memberId: "GYM-0004",
-    plan: "Yearly",
-    status: "paused",
-    phone: "9876543213",
-    expires: "18 Jan 2027",
-    joined: "18 Jan 2026",
-    attendance: 10,
-    totalPaid: 15000,
-  },
-  {
-    id: 5,
-    name: "Meena Verma",
-    memberId: "GYM-0005",
-    plan: "Monthly",
-    status: "expired",
-    phone: "9876543214",
-    expires: "10 Jul 2026",
-    joined: "10 Jan 2026",
-    attendance: 8,
-    totalPaid: 6000,
-  },
-  {
-    id: 6,
-    name: "Vikram Shah",
-    memberId: "GYM-0006",
-    plan: "Monthly",
-    status: "active",
-    phone: "9876543215",
-    expires: "25 Aug 2026",
-    joined: "25 Jan 2026",
-    attendance: 20,
-    totalPaid: 7500,
-  },
-  {
-    id: 7,
-    name: "Neha Gupta",
-    memberId: "GYM-0007",
-    plan: "Quarterly",
-    status: "active",
-    phone: "9876543216",
-    expires: "15 Sep 2026",
-    joined: "15 Jan 2026",
-    attendance: 28,
-    totalPaid: 8000,
-  },
-];
-
-const statusConfig = {
-  active: { label: "Active", color: "bg-green-500/20 text-green-400" },
-  expiring: { label: "Expiring", color: "bg-red-500/20   text-red-400" },
-  expired: { label: "Expired", color: "bg-red-500/20   text-red-400" },
-  paused: { label: "Paused", color: "bg-amber-500/20 text-amber-400" },
-};
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
 
 function MemberDetail() {
-  const navigate = useNavigate();
-  const { id } = useParams();
-  const member = allMembers.find((m) => m.id === parseInt(id));
+  const navigate       = useNavigate()
+  const { id }         = useParams()
+  const [member,   setMember]   = useState(null)
+  const [payments, setPayments] = useState([])
+  const [attendance, setAttendance] = useState(0)
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => {
+    if (id) fetchMember()
+  }, [id])
+
+  const fetchMember = async () => {
+    setLoading(true)
+    const month = new Date().toISOString().slice(0, 7)
+
+    // Member info
+    const { data: memberData } = await supabase
+      .from('members')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    // Payment history
+    const { data: paymentsData } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('member_id', id)
+      .order('paid_at', { ascending: false })
+
+    // Attendance this month
+    const { count: attendanceCount } = await supabase
+      .from('attendance')
+      .select('*', { count: 'exact', head: true })
+      .eq('member_id', id)
+      .gte('date', `${month}-01`)
+
+    if (memberData) setMember(memberData)
+    if (paymentsData) setPayments(paymentsData)
+    setAttendance(attendanceCount || 0)
+    setLoading(false)
+  }
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete ${member?.name}? This cannot be undone.`)) return
+
+    const { error } = await supabase
+      .from('members')
+      .delete()
+      .eq('id', id)
+
+    if (!error) {
+      alert('Member deleted!')
+      navigate('/owner/members')
+    }
+  }
+
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0)
+  const daysLeft  = member
+    ? Math.ceil((new Date(member.expires_at) - new Date()) / (1000 * 60 * 60 * 24))
+    : 0
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin"></div>
+      </div>
+    )
+  }
 
   if (!member) {
     return (
       <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
         <p className="text-white">Member not found</p>
       </div>
-    );
+    )
   }
 
   const infoRows = [
-    { label: "Phone", value: member.phone },
-    { label: "Plan", value: member.plan },
-    { label: "Joined", value: member.joined },
-    { label: "Expires", value: member.expires },
-    { label: "Status", value: statusConfig[member.status].label },
-  ];
+    { label: 'Phone',    value: member.phone },
+    { label: 'Plan',     value: member.plan?.charAt(0).toUpperCase() + member.plan?.slice(1) },
+    { label: 'Joined',   value: new Date(member.joined_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
+    { label: 'Expires',  value: new Date(member.expires_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
+    { label: 'Status',   value: member.status },
+  ]
 
   return (
     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
+
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
             className="w-8 h-8 bg-[#1a1a2e] border border-white/10 rounded-lg flex items-center justify-center text-white"
-          >
-            ←
-          </button>
+          >←</button>
           <h1 className="text-lg font-black text-white">Member Profile</h1>
         </div>
-        <span className="text-lg cursor-pointer">✏️</span>
       </div>
 
       {/* Profile Hero */}
@@ -138,11 +109,15 @@ function MemberDetail() {
         </div>
         <div>
           <h2 className="text-white font-black text-lg">{member.name}</h2>
-          <p className="text-slate-400 text-xs mt-0.5">{member.memberId}</p>
-          <span
-            className={`text-xs font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${statusConfig[member.status].color}`}
-          >
-            {statusConfig[member.status].label}
+          <p className="text-slate-400 text-xs mt-0.5">{member.member_id}</p>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full mt-1 inline-block
+            ${daysLeft > 0
+              ? daysLeft <= 7
+                ? 'bg-amber-500/20 text-amber-400'
+                : 'bg-green-500/20 text-green-400'
+              : 'bg-red-500/20 text-red-400'
+            }`}>
+            {daysLeft > 0 ? `Active — ${daysLeft} days left` : 'Expired'}
           </span>
         </div>
       </div>
@@ -150,22 +125,21 @@ function MemberDetail() {
       {/* Stats */}
       <div className="flex gap-2 mb-4">
         <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-xl p-3">
-          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
-            Attendance
-          </p>
-          <p className="text-purple-400 text-2xl font-black mt-1">
-            {member.attendance}
-          </p>
+          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Attendance</p>
+          <p className="text-purple-400 text-2xl font-black mt-1">{attendance}</p>
           <p className="text-slate-500 text-xs">this month</p>
         </div>
         <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-xl p-3">
-          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
-            Total Paid
-          </p>
+          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Total Paid</p>
           <p className="text-green-400 text-xl font-black mt-1">
-            ₹{member.totalPaid.toLocaleString("en-IN")}
+            ₹{totalPaid.toLocaleString('en-IN')}
           </p>
           <p className="text-slate-500 text-xs">all time</p>
+        </div>
+        <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-xl p-3">
+          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Payments</p>
+          <p className="text-blue-400 text-2xl font-black mt-1">{payments.length}</p>
+          <p className="text-slate-500 text-xs">total</p>
         </div>
       </div>
 
@@ -178,34 +152,75 @@ function MemberDetail() {
           <div
             key={i}
             className={`flex justify-between items-center px-4 py-3
-              ${i !== infoRows.length - 1 ? "border-b border-white/5" : ""}`}
+              ${i !== infoRows.length - 1 ? 'border-b border-white/5' : ''}`}
           >
             <span className="text-slate-400 text-sm">{row.label}</span>
-            <span className="text-white text-sm font-semibold">
+            <span className={`text-sm font-semibold capitalize
+              ${row.label === 'Status'
+                ? member.status === 'active' ? 'text-green-400' : 'text-red-400'
+                : 'text-white'
+              }`}>
               {row.value}
             </span>
           </div>
         ))}
       </div>
 
+      {/* Payment History */}
+      {payments.length > 0 && (
+        <>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+            Payment History
+          </p>
+          <div className="bg-[#1a1a2e] border border-white/7 rounded-xl divide-y divide-white/5 mb-4">
+            {payments.slice(0, 3).map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0
+                  ${p.method === 'upi' ? 'bg-purple-600/20' : 'bg-green-500/20'}`}>
+                  {p.method === 'upi' ? '📱' : '💵'}
+                </div>
+                <div className="flex-1">
+                  <p className="text-white text-xs font-bold capitalize">{p.method} · {p.plan}</p>
+                  <p className="text-slate-500 text-[10px]">
+                    {new Date(p.paid_at).toLocaleDateString('en-IN', {
+                      day: '2-digit', month: 'short', year: 'numeric'
+                    })}
+                  </p>
+                </div>
+                <p className="text-green-400 font-black text-sm">
+                  ₹{p.amount.toLocaleString('en-IN')}
+                </p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* Actions */}
       <div className="flex gap-2 mb-3">
         <button
-          onClick={() => navigate("/owner/payments")}
+          onClick={() => navigate('/owner/payments/log')}
           className="flex-1 bg-purple-600 text-white font-bold py-3 rounded-xl text-sm"
         >
           💰 Log Payment
         </button>
-        <button className="flex-1 bg-[#1a1a2e] border border-white/10 text-white font-bold py-3 rounded-xl text-sm">
-          ✏️ Edit Info
+        <button
+          onClick={() => navigate(`/owner/members/edit/${member.id}`)}
+          className="flex-1 bg-[#1a1a2e] border border-white/10 text-white font-bold py-3 rounded-xl text-sm"
+        >
+          ✏️ Edit
         </button>
       </div>
 
-      <button className="w-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold py-3 rounded-xl text-sm">
+      <button
+        onClick={handleDelete}
+        className="w-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold py-3 rounded-xl text-sm"
+      >
         🗑️ Delete Member
       </button>
+
     </div>
-  );
+  )
 }
 
-export default MemberDetail;
+export default MemberDetail
