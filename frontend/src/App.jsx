@@ -22,6 +22,7 @@ import OwnerAttendance from "./pages/owner/OwnerAttendance";
 import Videos from "./pages/owner/Videos";
 import UploadVideo from "./pages/owner/UploadVideo";
 import Settings from "./pages/owner/Settings";
+import Reports from './pages/owner/Reports'
 // Components
 import BottomNav from "./components/BottomNav";
 import OwnerBottomNav from "./components/OwnerBottomNav";
@@ -176,38 +177,7 @@ function App() {
             </OwnerRoute>
           }
         />
-        <Route
-          path="/owner/settings"
-          element={
-            <OwnerRoute>
-              <h1 className="text-white p-10">Settings — Coming Soon</h1>
-            </OwnerRoute>
-          }
-        />
-        <Route
-          path="/owner/attendance"
-          element={
-            <OwnerRoute>
-              <h1 className="text-white p-10">Attendance — Coming Soon</h1>
-            </OwnerRoute>
-          }
-        />
-        <Route
-          path="/owner/reports"
-          element={
-            <OwnerRoute>
-              <h1 className="text-white p-10">Reports — Coming Soon</h1>
-            </OwnerRoute>
-          }
-        />
-        <Route
-          path="/owner/members/add"
-          element={
-            <OwnerRoute>
-              <h1 className="text-white p-10">Add Member — Coming Soon</h1>
-            </OwnerRoute>
-          }
-        />
+        <Route path="/owner/reports" element={<OwnerRoute><Reports /></OwnerRoute>} />
       </Routes>
 
       {/* Member Bottom Nav */}
