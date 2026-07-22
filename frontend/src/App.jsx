@@ -23,6 +23,7 @@ import Videos from "./pages/owner/Videos";
 import UploadVideo from "./pages/owner/UploadVideo";
 import Settings from "./pages/owner/Settings";
 import Reports from './pages/owner/Reports'
+import EditMember from './pages/owner/EditMember'
 // Components
 import BottomNav from "./components/BottomNav";
 import OwnerBottomNav from "./components/OwnerBottomNav";
@@ -178,6 +179,7 @@ function App() {
           }
         />
         <Route path="/owner/reports" element={<OwnerRoute><Reports /></OwnerRoute>} />
+        <Route path="/owner/members/edit/:id" element={<OwnerRoute><EditMember /></OwnerRoute>} />
       </Routes>
 
       {/* Member Bottom Nav */}

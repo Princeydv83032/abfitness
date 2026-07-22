@@ -1,15 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-
-const planPrices = {
-  monthly:   1500,
-  quarterly: 4000,
-  yearly:    15000,
-}
+import { usePrices } from '../../hooks/usePrices'
 
 function LogPayment() {
-  const navigate = useNavigate()
+  const navigate               = useNavigate()
+  const { prices: planPrices } = usePrices()
   const [members,        setMembers]        = useState([])
   const [search,         setSearch]         = useState('')
   const [selectedMember, setSelectedMember] = useState(null)
@@ -56,7 +52,6 @@ function LogPayment() {
     try {
       const newExpiry = getNewExpiry()
 
-      // Payment save karo
       const { error: paymentError } = await supabase
         .from('payments')
         .insert({
@@ -70,7 +65,6 @@ function LogPayment() {
 
       if (paymentError) throw paymentError
 
-      // Member expiry update karo
       const { error: memberError } = await supabase
         .from('members')
         .update({
@@ -82,12 +76,11 @@ function LogPayment() {
 
       if (memberError) throw memberError
 
-      alert(`✅ Payment logged for ${selectedMember.name}!\nNew expiry: ${newExpiry.formatted}`)
+      alert(`✅ Payment logged!\nNew expiry: ${newExpiry.formatted}`)
       navigate('/owner/payments')
 
     } catch (err) {
-      console.log('Error:', err)
-      alert('Something went wrong. Please try again.')
+      alert('Error: ' + err.message)
     } finally {
       setLoading(false)
     }
@@ -96,7 +89,6 @@ function LogPayment() {
   return (
     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-10">
 
-      {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button
           onClick={() => navigate(-1)}
@@ -148,10 +140,7 @@ function LogPayment() {
             <p className="text-white font-bold text-sm">{selectedMember.name}</p>
             <p className="text-slate-400 text-xs">{selectedMember.member_id}</p>
           </div>
-          <button
-            onClick={() => setSelectedMember(null)}
-            className="text-slate-400 text-xs"
-          >
+          <button onClick={() => setSelectedMember(null)} className="text-slate-400 text-xs">
             Change
           </button>
         </div>
@@ -174,13 +163,13 @@ function LogPayment() {
           >
             <div className="text-xs font-bold capitalize">{p}</div>
             <div className="text-sm font-black mt-0.5">
-              ₹{planPrices[p].toLocaleString('en-IN')}
+              ₹{(planPrices[p] || 0).toLocaleString('en-IN')}
             </div>
           </button>
         ))}
       </div>
 
-      {/* Step 3 — Payment Method */}
+      {/* Step 3 — Method */}
       <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
         Step 3 — Payment Method
       </p>
@@ -204,12 +193,9 @@ function LogPayment() {
         ))}
       </div>
 
-      {/* UPI Ref */}
       {method === 'upi' && (
         <div className="mb-4">
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            UPI Reference Number
-          </label>
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">UPI Reference</label>
           <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
             <span>🔗</span>
             <input
@@ -222,7 +208,6 @@ function LogPayment() {
         </div>
       )}
 
-      {/* New Expiry */}
       {selectedMember && (
         <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 mb-4">
           <p className="text-green-400 text-xs font-bold">📅 New Expiry Date</p>
@@ -230,13 +215,12 @@ function LogPayment() {
         </div>
       )}
 
-      {/* Confirm */}
       <button
         onClick={handleConfirm}
         disabled={!selectedMember || loading}
         className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
       >
-        {loading ? '⏳ Saving...' : `✅ Confirm Payment — ₹${planPrices[plan].toLocaleString('en-IN')}`}
+        {loading ? '⏳ Saving...' : `✅ Confirm — ₹${(planPrices[plan] || 0).toLocaleString('en-IN')}`}
       </button>
 
     </div>
