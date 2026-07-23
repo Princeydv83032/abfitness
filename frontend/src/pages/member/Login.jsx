@@ -2,15 +2,18 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { supabase } from "../../lib/supabase";
+import useAuthStore from "../../store/authStore";
 
 function Login() {
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState("");
+  const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState(null);
   const navigate = useNavigate();
+  const setMember = useAuthStore((state) => state.setMember);
 
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
@@ -26,22 +29,18 @@ function Login() {
     if (phone.length !== 10) return;
     setLoading(true);
     setError("");
-
     try {
       setupRecaptcha();
-      const phoneNumber = `+91${phone}`;
-      const appVerifier = window.recaptchaVerifier;
       const confirmation = await signInWithPhoneNumber(
         auth,
-        phoneNumber,
-        appVerifier,
+        `+91${phone}`,
+        window.recaptchaVerifier,
       );
       setConfirm(confirmation);
       setOtpSent(true);
     } catch (err) {
       console.log("OTP Error:", err);
       setError("Failed to send OTP. Please try again.");
-      // Reset recaptcha on error
       if (window.recaptchaVerifier) {
         window.recaptchaVerifier.clear();
         window.recaptchaVerifier = null;
@@ -51,20 +50,44 @@ function Login() {
     }
   };
 
+  const handleOtpChange = (value, index) => {
+    // Paste handle karo
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, "").slice(0, 6).split("");
+      const newOtp = [...otpDigits];
+      digits.forEach((d, i) => {
+        if (index + i < 6) newOtp[index + i] = d;
+      });
+      setOtpDigits(newOtp);
+      const lastIndex = Math.min(index + digits.length - 1, 5);
+      document.getElementById(`otp-${lastIndex}`)?.focus();
+      return;
+    }
+    const newOtp = [...otpDigits];
+    newOtp[index] = value.replace(/\D/g, "");
+    setOtpDigits(newOtp);
+    if (value && index < 5) {
+      document.getElementById(`otp-${index + 1}`)?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (e, index) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      const newOtp = [...otpDigits];
+      newOtp[index - 1] = "";
+      setOtpDigits(newOtp);
+      document.getElementById(`otp-${index - 1}`)?.focus();
+    }
+  };
+
   const handleVerifyOTP = async () => {
+    const otp = otpDigits.join("");
     if (otp.length !== 6) return;
     setLoading(true);
     setError("");
 
     try {
       await confirm.confirm(otp);
-
-      // OTP verified — ab Supabase se member dhundho
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY,
-      );
 
       const { data: member, error: dbError } = await supabase
         .from("members")
@@ -78,9 +101,7 @@ function Login() {
         return;
       }
 
-      // Zustand mein save karo
-      const { default: useAuthStore } = await import("../../store/authStore");
-      useAuthStore.getState().setMember(member);
+      setMember(member);
       navigate("/home");
     } catch (err) {
       console.log("Verify Error:", err);
@@ -92,7 +113,6 @@ function Login() {
 
   return (
     <div className="min-h-screen bg-[#0d0d14] flex flex-col items-center justify-center px-6">
-      {/* Recaptcha — invisible */}
       <div id="recaptcha-container"></div>
 
       <div className="text-5xl mb-6">{otpSent ? "🔐" : "📱"}</div>
@@ -139,14 +159,27 @@ function Login() {
           </>
         ) : (
           <>
-            <input
-              type="tel"
-              placeholder="Enter 6 digit OTP"
-              maxLength={6}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 text-white text-center text-2xl font-black outline-none tracking-widest placeholder:text-slate-600 placeholder:text-base placeholder:font-normal focus:border-purple-500"
-            />
+            {/* 6 OTP Boxes */}
+            <div className="flex gap-2 justify-center my-4">
+              {otpDigits.map((digit, i) => (
+                <input
+                  key={i}
+                  id={`otp-${i}`}
+                  type="tel"
+                  maxLength={6}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(e.target.value, i)}
+                  onKeyDown={(e) => handleOtpKeyDown(e, i)}
+                  className={`w-11 h-14 text-center text-xl font-black rounded-xl border-2 outline-none transition-all
+                    ${
+                      digit
+                        ? "bg-purple-600/20 border-purple-500 text-white"
+                        : "bg-[#1a1a2e] border-white/10 text-white"
+                    }
+                    focus:border-purple-500 focus:bg-purple-600/10`}
+                />
+              ))}
+            </div>
 
             {error && (
               <p className="text-red-400 text-xs text-center">{error}</p>
@@ -154,7 +187,7 @@ function Login() {
 
             <button
               onClick={handleVerifyOTP}
-              disabled={otp.length !== 6 || loading}
+              disabled={otpDigits.join("").length !== 6 || loading}
               className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
             >
               {loading ? "⏳ Verifying..." : "Verify & Login →"}
@@ -163,7 +196,7 @@ function Login() {
             <button
               onClick={() => {
                 setOtpSent(false);
-                setOtp("");
+                setOtpDigits(["", "", "", "", "", ""]);
                 setError("");
               }}
               className="w-full text-center text-slate-400 text-xs"
@@ -173,13 +206,6 @@ function Login() {
           </>
         )}
       </div>
-
-      <button
-        onClick={() => navigate("/owner/login")}
-        className="text-purple-400 text-xs font-semibold mt-8"
-      >
-        Owner? Login here →
-      </button>
     </div>
   );
 }
