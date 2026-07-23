@@ -239,6 +239,7 @@ function OwnerDashboard() {
           { icon: "💰", label: "Log Payment", path: "/owner/payments/log" },
           { icon: "📅", label: "Attendance", path: "/owner/attendance" },
           { icon: "👥", label: "Members", path: "/owner/members" },
+          { icon: '📊', label: 'Reports', path: '/owner/reports' },
         ].map((a) => (
           <button
             key={a.label}
