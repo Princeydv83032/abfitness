@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
 import useAuthStore from "../../store/authStore";
 
 function Settings() {
@@ -7,17 +8,116 @@ function Settings() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  const [notifications, setNotifications] = useState({
-    expiryAlerts: true,
-    dailySummary: true,
-    newMemberAlert: false,
-  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [qrUploading, setQrUploading] = useState(false);
+
+  const [gymName, setGymName] = useState("");
+  const [timing, setTiming] = useState("");
+  const [upiId, setUpiId] = useState("");
+  const [qrUrl, setQrUrl] = useState("");
 
   const [fees, setFees] = useState({
     monthly: 1500,
     quarterly: 4000,
     yearly: 15000,
   });
+  const [notifications, setNotifications] = useState({
+    expiryAlerts: true,
+    dailySummary: true,
+    newMemberAlert: false,
+  });
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("owner").select("*").single();
+
+    if (data) {
+      setGymName(data.gym_name || "");
+      setTiming(data.timing || "5:00 AM - 10:00 PM");
+      setUpiId(data.upi_id || "");
+      setQrUrl(data.upi_qr_url || "");
+      if (data.settings?.fees) setFees(data.settings.fees);
+      if (data.settings?.notifications)
+        setNotifications(data.settings.notifications);
+    }
+    setLoading(false);
+  };
+
+  const handleQRUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setQrUploading(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append(
+      "upload_preset",
+      import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
+    );
+    formData.append("folder", "gym_qr");
+
+    try {
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: "POST", body: formData },
+      );
+      const data = await res.json();
+
+      if (!data.secure_url) {
+        alert("Upload failed — no URL returned");
+        return;
+      }
+
+      // Pehle state update karo
+      setQrUrl(data.secure_url);
+
+      // Phir Supabase mein save karo
+      const { error } = await supabase
+        .from("owner")
+        .update({ upi_qr_url: data.secure_url })
+        .eq("gym_name", gymName);
+
+      if (error) {
+        console.log("Supabase error:", error);
+        alert("Saved in cloud but DB update failed: " + error.message);
+      } else {
+        alert("✅ QR Code uploaded successfully!");
+      }
+    } catch (err) {
+      console.log("Error:", err);
+      alert("Upload failed: " + err.message);
+    } finally {
+      setQrUploading(false);
+    }
+  };
+  const handleSave = async () => {
+    setSaving(true);
+    setSuccess(false);
+
+    const { error } = await supabase
+      .from("owner")
+      .update({
+        gym_name: gymName,
+        timing: timing,
+        upi_id: upiId,
+        settings: { fees, notifications },
+      })
+      .eq("gym_name", gymName);
+
+    if (!error) {
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } else {
+      alert("Save failed: " + error.message);
+    }
+    setSaving(false);
+  };
 
   const toggleNotif = (key) =>
     setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -27,20 +127,25 @@ function Settings() {
     navigate("/owner/login");
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
-      {/* Header */}
       <h1 className="text-2xl font-black text-white mb-4">Settings</h1>
 
       {/* Gym Profile */}
       <div className="bg-[#1a1a2e] border border-purple-500/30 rounded-2xl p-4 flex items-center gap-4 mb-5">
         <div className="w-14 h-14 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-black flex-shrink-0">
-          {user?.gymName?.[0] || "A"}
+          {gymName?.[0] || "A"}
         </div>
         <div>
-          <h2 className="text-white font-black text-lg">
-            {user?.gymName || "AB Fitness"}
-          </h2>
+          <h2 className="text-white font-black text-lg">{gymName}</h2>
           <p className="text-slate-400 text-xs mt-0.5">
             Owner · +91 {user?.phone || "--"}
           </p>
@@ -50,11 +155,46 @@ function Settings() {
         </div>
       </div>
 
+      {/* Gym Info */}
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+        Gym Info
+      </p>
+      <div className="space-y-3 mb-5">
+        <div>
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Gym Name
+          </label>
+          <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
+            <span>🏋️</span>
+            <input
+              value={gymName}
+              onChange={(e) => setGymName(e.target.value)}
+              placeholder="Gym name"
+              className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Timing
+          </label>
+          <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
+            <span>⏰</span>
+            <input
+              value={timing}
+              onChange={(e) => setTiming(e.target.value)}
+              placeholder="5:00 AM - 10:00 PM"
+              className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Membership Fees */}
       <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
         Membership Fees
       </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl mb-4">
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl mb-5">
         {[
           { key: "monthly", label: "Monthly Plan" },
           { key: "quarterly", label: "Quarterly Plan" },
@@ -72,20 +212,101 @@ function Settings() {
                 type="number"
                 value={fees[item.key]}
                 onChange={(e) =>
-                  setFees((prev) => ({ ...prev, [item.key]: e.target.value }))
+                  setFees((prev) => ({
+                    ...prev,
+                    [item.key]: parseInt(e.target.value) || 0,
+                  }))
                 }
-                className="bg-transparent outline-none text-white text-sm font-bold w-16 text-right"
+                className="bg-transparent outline-none text-white text-sm font-bold w-20 text-right"
               />
             </div>
           </div>
         ))}
       </div>
 
+      {/* UPI Payment */}
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+        UPI Payment
+      </p>
+      <div className="space-y-3 mb-5">
+        {/* UPI ID */}
+        <div>
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            UPI ID
+          </label>
+          <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
+            <span>📱</span>
+            <input
+              placeholder="yourname@upi"
+              value={upiId}
+              onChange={(e) => setUpiId(e.target.value)}
+              className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600"
+            />
+          </div>
+        </div>
+
+        {/* QR Code */}
+        <div>
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            UPI QR Code
+          </label>
+          <div className="mt-1.5">
+            {qrUrl ? (
+              <div className="text-center">
+                <div className="text-center bg-[#1a1a2e] border border-white/10 rounded-2xl p-4">
+                  <img
+                    src={qrUrl}
+                    alt="UPI QR"
+                    className="w-48 h-48 object-contain bg-white rounded-xl p-2 mx-auto"
+                  />
+                  <p className="text-slate-400 text-xs mt-2">
+                    Members scan this to pay
+                  </p>
+                  <label
+                    htmlFor="qr-upload"
+                    className="block text-center mt-2 text-purple-400 text-xs font-bold cursor-pointer"
+                  >
+                    ✏️ Change QR Code
+                  </label>
+                </div>
+                <input
+                  id="qr-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleQRUpload}
+                  className="hidden"
+                />
+              </div>
+            ) : (
+              <label
+                htmlFor="qr-upload"
+                className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-white/10 rounded-xl bg-[#1a1a2e] cursor-pointer"
+              >
+                <div className="text-3xl mb-2">📷</div>
+                <p className="text-slate-400 text-sm">
+                  {qrUploading ? "⏳ Uploading..." : "Tap to upload QR code"}
+                </p>
+                <p className="text-slate-500 text-xs mt-1">
+                  Members will scan this to pay
+                </p>
+              </label>
+            )}
+            <input
+              id="qr-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleQRUpload}
+              className="hidden"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Notifications */}
       <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
         Notifications
       </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl mb-4">
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl mb-5">
         {[
           {
             key: "expiryAlerts",
@@ -126,31 +347,20 @@ function Settings() {
         ))}
       </div>
 
-      {/* Workout Schedule */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-        Workout Schedule
-      </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl mb-4">
-        <div className="flex justify-between items-center px-4 py-3 border-b border-white/5">
-          <p className="text-white text-sm font-semibold">Weekly Split</p>
-          <span className="text-purple-400 text-xs font-bold cursor-pointer">
-            Edit ✏️
-          </span>
+      {/* Success */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-3 mb-4 text-center">
+          <p className="text-green-400 font-bold text-sm">✅ Settings saved!</p>
         </div>
-        <div className="flex justify-between items-center px-4 py-3">
-          <p className="text-white text-sm font-semibold">Exercise Videos</p>
-          <span
-            onClick={() => navigate("/owner/videos")}
-            className="text-purple-400 text-xs font-bold cursor-pointer"
-          >
-            7 uploaded →
-          </span>
-        </div>
-      </div>
+      )}
 
-      {/* Save Button */}
-      <button className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm mb-3">
-        💾 Save Changes
+      {/* Save */}
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm mb-3 disabled:opacity-50"
+      >
+        {saving ? "⏳ Saving..." : "💾 Save Changes"}
       </button>
 
       {/* Logout */}
