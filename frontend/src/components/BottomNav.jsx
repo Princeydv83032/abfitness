@@ -1,11 +1,11 @@
 import { useNavigate, useLocation } from "react-router-dom";
 
 const tabs = [
-  { icon: "🏠", label: "Home", path: "/home" },
-  { icon: "💪", label: "Workout", path: "/workout" },
+  { icon: "🏠", label: "Home",       path: "/home"       },
+  { icon: "💪", label: "Workout",    path: "/workout"    },
   { icon: "📅", label: "Attendance", path: "/attendance" },
-  { icon: "💰", label: "Payments", path: "/payments" },
-  { icon: "👤", label: "Profile", path: "/profile" },
+  { icon: "💰", label: "Payments",   path: "/payments"   },
+  { icon: "👤", label: "Profile",    path: "/profile"    },
 ];
 
 function BottomNav() {
@@ -19,13 +19,13 @@ function BottomNav() {
         return (
           <button
             key={tab.path}
-            onClick={() => navigate(tab.path)}
-            className="flex-1 flex flex-col items-center justify-center py-3 gap-1"
+            onClick={() => navigate(tab.path, { replace: true })}
+            className="flex-1 flex flex-col items-center justify-center py-3 gap-1 relative"
           >
-            <span className="text-xl leading-none">{tab.icon}</span>
-            <span
-              className={`text-[10px] font-bold ${isActive ? "text-purple-400" : "text-slate-500"}`}
-            >
+            <span className={`text-xl leading-none ${isActive ? 'filter drop-shadow-[0_0_6px_rgba(124,58,237,0.8)]' : ''}`}>
+              {tab.icon}
+            </span>
+            <span className={`text-[10px] font-bold ${isActive ? "text-purple-400" : "text-slate-500"}`}>
               {tab.label}
             </span>
             {isActive && (
