@@ -9,15 +9,22 @@ try {
 
   let serviceAccount;
 
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    // Render pe — env variable se
-    const jsonStr = process.env.FIREBASE_SERVICE_ACCOUNT.replace(/\\n/g, "\n");
-    serviceAccount = JSON.parse(jsonStr);
-    console.log("Using env service account ✅");
+  if (process.env.FIREBASE_PRIVATE_KEY) {
+    serviceAccount = {
+      type: "service_account",
+      project_id: "abfitness-105c2",
+      private_key_id: "ac411702e415d762d8adda0367f059d2059ba3ce",
+      private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      client_id: "113069557817138653461",
+      auth_uri: "https://accounts.google.com/o/oauth2/auth",
+      token_uri: "https://oauth2.googleapis.com/token",
+      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+      client_x509_cert_url:
+        "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40abfitness-105c2.iam.gserviceaccount.com",
+    };
   } else {
-    // Local pe — file se
     serviceAccount = require(path.join(__dirname, "../serviceAccount.json"));
-    console.log("Using file service account ✅");
   }
 
   if (getApps().length === 0) {
