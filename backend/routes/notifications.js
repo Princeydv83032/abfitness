@@ -14,7 +14,7 @@ try {
       type: "service_account",
       project_id: "abfitness-105c2",
       private_key_id: "ac411702e415d762d8adda0367f059d2059ba3ce",
-      private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      private_key: process.env.FIREBASE_PRIVATE_KEY,
       client_email: process.env.FIREBASE_CLIENT_EMAIL,
       client_id: "113069557817138653461",
       auth_uri: "https://accounts.google.com/o/oauth2/auth",
