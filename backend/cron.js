@@ -1,11 +1,12 @@
 require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
-const { sendNotification } = require("./routes/notifications");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY,
 );
+
+const { sendNotification } = require("./routes/notifications");
 
 const days = [
   "Sunday",
@@ -27,36 +28,44 @@ const muscleGroups = {
   Sunday: "Rest Day 😴",
 };
 
-// Helper — saare tokens fetch karo
+// ── Helper — saare tokens fetch karo ────────────────
 const getAllTokens = async () => {
   const { data } = await supabase.from("fcm_tokens").select("token, member_id");
   return data || [];
 };
 
-// Helper — send to all
+// ── Helper — send to all + invalid token cleanup ────
 const sendToAll = async (title, body) => {
   const tokens = await getAllTokens();
   let sent = 0;
-  for (const { token } of tokens) {
-    const success = await sendNotification(token, title, body);
-    if (success) sent++;
+
+  for (const { token, member_id } of tokens) {
+    const result = await sendNotification(token, title, body);
+
+    if (result === true) {
+      sent++;
+    } else if (result === "invalid") {
+      console.log(`Removing invalid token for member: ${member_id}`);
+      await supabase.from("fcm_tokens").delete().eq("token", token);
+    }
   }
+
   console.log(`Sent ${sent}/${tokens.length} notifications`);
   return sent;
 };
 
-// ── 1. Morning Notification — 6:00 AM ──────────────
+// ── 1. Morning Notification ─────────────────────────
 async function sendMorningNotifications() {
   const today = days[new Date().getDay()];
   const muscle = muscleGroups[today];
-  console.log("Sending morning notifications...");
+  console.log(`Sending morning notifications for ${today}...`);
   await sendToAll(
     `Good Morning! 🌅 Aaj ${today} hai`,
     `💪 ${muscle} Day! Gym time! 🏋️`,
   );
 }
 
-// ── 2. Supplement Reminder — 9:00 AM ───────────────
+// ── 2. Supplement Reminder ──────────────────────────
 async function sendSupplementReminder() {
   console.log("Sending supplement reminders...");
   await sendToAll(
@@ -65,7 +74,7 @@ async function sendSupplementReminder() {
   );
 }
 
-// ── 3. Diet Reminder — 1:00 PM ─────────────────────
+// ── 3. Diet Reminder ────────────────────────────────
 async function sendDietReminder() {
   console.log("Sending diet reminders...");
   await sendToAll(
@@ -74,7 +83,7 @@ async function sendDietReminder() {
   );
 }
 
-// ── 4. Water Reminder — Har 2 ghante ───────────────
+// ── 4. Water Reminder ───────────────────────────────
 async function sendWaterReminder(message) {
   console.log("Sending water reminder...");
   await sendToAll(
@@ -83,7 +92,7 @@ async function sendWaterReminder(message) {
   );
 }
 
-// ── 5. Evening Workout — 5:00 PM ───────────────────
+// ── 5. Evening Workout ──────────────────────────────
 async function sendEveningWorkout() {
   const today = days[new Date().getDay()];
   const muscle = muscleGroups[today];
@@ -91,7 +100,7 @@ async function sendEveningWorkout() {
   await sendToAll("🏋️ Gym Time!", `Aaj ${muscle} — ab gym jaane ka time! 💪`);
 }
 
-// ── 6. Streak Reminder — 7:30 PM ───────────────────
+// ── 6. Streak Reminder ──────────────────────────────
 async function sendStreakReminder() {
   const today = new Date().toISOString().split("T")[0];
   console.log("Sending streak reminders...");
@@ -102,26 +111,33 @@ async function sendStreakReminder() {
     .gt("current", 0)
     .neq("last_date", today);
 
-  if (!streaks?.length) return;
+  if (!streaks?.length) {
+    console.log("No streak reminders needed");
+    return;
+  }
 
   for (const streak of streaks) {
     const { data: tokenData } = await supabase
       .from("fcm_tokens")
       .select("token")
       .eq("member_id", streak.member_id)
-      .single();
+      .maybeSingle();
 
     if (!tokenData?.token) continue;
 
-    await sendNotification(
+    const result = await sendNotification(
       tokenData.token,
       "🔥 Streak Alert!",
       `${streak.current} din ki streak mat todna! Aaj bhi gym aao 💪`,
     );
+
+    if (result === "invalid") {
+      await supabase.from("fcm_tokens").delete().eq("token", tokenData.token);
+    }
   }
 }
 
-// ── 7. Pre-Sleep Reminder — 7:45 PM ────────────────
+// ── 7. Pre-Sleep Summary ────────────────────────────
 async function sendPreSleepReminder() {
   console.log("Sending pre-sleep reminders...");
   await sendToAll(
@@ -130,9 +146,10 @@ async function sendPreSleepReminder() {
   );
 }
 
-// ── 8. Weekly Progress — Sunday 8:00 PM ────────────
+// ── 8. Weekly Progress ──────────────────────────────
 async function sendWeeklyProgress() {
   console.log("Sending weekly progress...");
+
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() - 7);
   const weekStartStr = weekStart.toISOString().split("T")[0];
@@ -151,17 +168,21 @@ async function sendWeeklyProgress() {
     const days_count = count || 0;
     const emoji = days_count >= 5 ? "🏆" : days_count >= 3 ? "💪" : "😢";
 
-    await sendNotification(
+    const result = await sendNotification(
       token,
       `${emoji} Weekly Report`,
       `Is hafte ${days_count}/7 din gym aaye! ${
         days_count >= 5
-          ? "Amazing consistency!"
+          ? "Amazing consistency! 🔥"
           : days_count >= 3
-            ? "Acha chal raha hai!"
+            ? "Acha chal raha hai! 💪"
             : "Agle hafte aur aaoge? 💪"
       }`,
     );
+
+    if (result === "invalid") {
+      await supabase.from("fcm_tokens").delete().eq("token", token);
+    }
   }
 }
 
@@ -181,22 +202,29 @@ async function sendExpiryReminders(daysBeforeExpiry) {
     .eq("expires_at", targetDate)
     .eq("status", "active");
 
-  if (!members?.length) return;
+  if (!members?.length) {
+    console.log(`No members expiring in ${daysBeforeExpiry} days`);
+    return;
+  }
 
   for (const member of members) {
     const { data: tokenData } = await supabase
       .from("fcm_tokens")
       .select("token")
       .eq("member_id", member.id)
-      .single();
+      .maybeSingle();
 
     if (!tokenData?.token) continue;
 
-    await sendNotification(
+    const result = await sendNotification(
       tokenData.token,
       "⚠️ Membership Expiry Alert!",
       `${member.name}, membership ${daysBeforeExpiry} din mein expire hogi! Abhi renew karo 💳`,
     );
+
+    if (result === "invalid") {
+      await supabase.from("fcm_tokens").delete().eq("token", tokenData.token);
+    }
   }
 }
 
