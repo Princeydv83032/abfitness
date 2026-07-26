@@ -7,6 +7,7 @@ const statusConfig = {
   expiring: { label: "Expiring", color: "bg-red-500/20   text-red-400" },
   expired: { label: "Expired", color: "bg-red-500/20   text-red-400" },
   paused: { label: "Paused", color: "bg-amber-500/20 text-amber-400" },
+  pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400" },
 };
 
 function MembersList() {
@@ -16,7 +17,6 @@ function MembersList() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  // Supabase se members fetch karo
   useEffect(() => {
     fetchMembers();
   }, []);
@@ -28,11 +28,7 @@ function MembersList() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.log("Error:", error);
-    } else {
-      setMembers(data);
-    }
+    if (!error) setMembers(data);
     setLoading(false);
   };
 
@@ -73,7 +69,7 @@ function MembersList() {
         {[
           { key: "all", label: `All (${members.length})` },
           { key: "active", label: "Active" },
-          { key: "expiring", label: "Expiring" },
+          { key: "pending", label: "Pending" },
           { key: "expired", label: "Expired" },
         ].map((f) => (
           <button
@@ -108,24 +104,38 @@ function MembersList() {
               onClick={() => navigate(`/owner/members/${m.id}`)}
               className="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-white/5"
             >
-              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
-                {m.name[0]}
-              </div>
+              {/* Avatar */}
+              {m.profile_photo ? (
+                <img
+                  src={m.profile_photo}
+                  alt={m.name}
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-purple-500/30"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
+                  {m.name[0]}
+                </div>
+              )}
+
               <div className="flex-1">
                 <p className="text-white text-sm font-bold">{m.name}</p>
                 <p className="text-slate-400 text-xs mt-0.5">
                   {m.member_id} · {m.plan}
                 </p>
               </div>
+
               <span
-                className={`text-xs font-bold px-2 py-1 rounded-full ${statusConfig[m.status]?.color || "bg-gray-500/20 text-gray-400"}`}
+                className={`text-xs font-bold px-2 py-1 rounded-full ${
+                  statusConfig[m.status]?.color ||
+                  "bg-gray-500/20 text-gray-400"
+                }`}
               >
                 {statusConfig[m.status]?.label || m.status}
               </span>
             </div>
           ))}
 
-          {filtered.length === 0 && !loading && (
+          {filtered.length === 0 && (
             <div className="text-center py-8 text-slate-500 text-sm">
               No members found
             </div>
