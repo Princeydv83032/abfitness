@@ -21,6 +21,7 @@ import Payments from "./pages/member/Payments";
 import Profile from "./pages/member/Profile";
 import Diet from "./pages/member/Diet";
 import DietOverall from "./pages/member/DietOverall";
+import Progress from "./pages/member/Progress";
 
 // Owner Pages
 import OwnerLogin from "./pages/owner/OwnerLogin";
@@ -167,6 +168,14 @@ function App() {
           element={
             <MemberRoute>
               <DietOverall />
+            </MemberRoute>
+          }
+        />
+        <Route
+          path="/progress"
+          element={
+            <MemberRoute>
+              <Progress />
             </MemberRoute>
           }
         />

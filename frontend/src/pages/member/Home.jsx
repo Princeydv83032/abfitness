@@ -411,10 +411,15 @@ function Home() {
       <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
         Quick Actions
       </p>
-      <div className="grid grid-cols-3 gap-2">
+      {/* Quick Actions */}
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+        Quick Actions
+      </p>
+      <div className="grid grid-cols-2 gap-2">
         {[
           { icon: "📋", label: "Check In", path: "/attendance" },
           { icon: "💰", label: "Payments", path: "/payments" },
+          { icon: "📸", label: "Progress", path: "/progress" },
           { icon: "👤", label: "Profile", path: "/profile" },
         ].map((a) => (
           <button
