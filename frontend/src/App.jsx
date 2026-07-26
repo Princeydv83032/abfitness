@@ -22,6 +22,7 @@ import Profile from "./pages/member/Profile";
 import Diet from "./pages/member/Diet";
 import DietOverall from "./pages/member/DietOverall";
 import Progress from "./pages/member/Progress";
+import CalorieCounter from "./pages/member/CalorieCounter";
 
 // Owner Pages
 import OwnerLogin from "./pages/owner/OwnerLogin";
@@ -168,6 +169,14 @@ function App() {
           element={
             <MemberRoute>
               <DietOverall />
+            </MemberRoute>
+          }
+        />
+        <Route
+          path="/calories"
+          element={
+            <MemberRoute>
+              <CalorieCounter />
             </MemberRoute>
           }
         />
