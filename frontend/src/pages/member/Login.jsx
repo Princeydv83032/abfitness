@@ -51,7 +51,6 @@ function Login() {
   };
 
   const handleOtpChange = (value, index) => {
-    // Paste handle karo
     if (value.length > 1) {
       const digits = value.replace(/\D/g, "").slice(0, 6).split("");
       const newOtp = [...otpDigits];
@@ -66,9 +65,8 @@ function Login() {
     const newOtp = [...otpDigits];
     newOtp[index] = value.replace(/\D/g, "");
     setOtpDigits(newOtp);
-    if (value && index < 5) {
+    if (value && index < 5)
       document.getElementById(`otp-${index + 1}`)?.focus();
-    }
   };
 
   const handleOtpKeyDown = (e, index) => {
@@ -156,10 +154,16 @@ function Login() {
             >
               {loading ? "⏳ Sending OTP..." : "Send OTP →"}
             </button>
+
+            <button
+              onClick={() => navigate("/register")}
+              className="w-full bg-[#1a1a2e] border border-purple-500/30 text-purple-400 font-bold py-3 rounded-xl text-sm"
+            >
+              🆕 New Member? Join Here →
+            </button>
           </>
         ) : (
           <>
-            {/* 6 OTP Boxes */}
             <div className="flex gap-2 justify-center my-4">
               {otpDigits.map((digit, i) => (
                 <input
@@ -175,8 +179,7 @@ function Login() {
                       digit
                         ? "bg-purple-600/20 border-purple-500 text-white"
                         : "bg-[#1a1a2e] border-white/10 text-white"
-                    }
-                    focus:border-purple-500 focus:bg-purple-600/10`}
+                    } focus:border-purple-500 focus:bg-purple-600/10`}
                 />
               ))}
             </div>
