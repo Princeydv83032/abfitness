@@ -208,6 +208,7 @@ import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
 import StreakCard from "../../components/StreakCard";
 import WaterTracker from "../../components/WaterTracker";
+import SupplementTracker from "../../components/SupplementTracker";
 
 function Home() {
   const navigate = useNavigate();
@@ -357,8 +358,8 @@ function Home() {
       {streak && <StreakCard streak={streak} getStreakEmoji={getStreakEmoji} />}
       {/* Water Tracker */}
       <WaterTracker memberId={user?.id} />
-
-      {/* Stats */}
+      {/* Supplement Tracker */}
+      <SupplementTracker memberId={user?.id} />
 
       {/* Stats */}
       <div className="flex gap-2 mb-4">

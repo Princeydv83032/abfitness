@@ -20,6 +20,7 @@ import Attendance from "./pages/member/Attendance";
 import Payments from "./pages/member/Payments";
 import Profile from "./pages/member/Profile";
 import Diet from "./pages/member/Diet";
+import DietOverall from "./pages/member/DietOverall";
 
 // Owner Pages
 import OwnerLogin from "./pages/owner/OwnerLogin";
@@ -158,6 +159,14 @@ function App() {
           element={
             <MemberRoute>
               <Diet />
+            </MemberRoute>
+          }
+        />
+        <Route
+          path="/diet/overall"
+          element={
+            <MemberRoute>
+              <DietOverall />
             </MemberRoute>
           }
         />
