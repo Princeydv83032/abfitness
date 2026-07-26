@@ -72,5 +72,90 @@ router.post("/test", async (req, res) => {
   );
   res.json({ success });
 });
+// Morning notification test
+router.post("/test-morning", async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ message: "Token required" });
+
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const muscleGroups = {
+    Monday: "Chest 💪",
+    Tuesday: "Biceps & Triceps 💪",
+    Wednesday: "Shoulders 🏋️",
+    Thursday: "Back 🔙",
+    Friday: "Legs 🦵",
+    Saturday: "Core & Cardio 🔥",
+    Sunday: "Rest Day 😴",
+  };
+  const today = days[new Date().getDay()];
+  const muscle = muscleGroups[today];
+
+  const success = await sendNotification(
+    token,
+    `Good Morning! 🌅 Aaj ${today} hai`,
+    `💪 ${muscle} Day! Gym time! 🏋️`,
+  );
+  res.json({ success });
+});
+
+// Streak reminder test
+router.post("/test-streak", async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ message: "Token required" });
+
+  const success = await sendNotification(
+    token,
+    "🔥 Streak Alert!",
+    "Aaj gym mat bhoolo — streak todne mat dena! 💪",
+  );
+  res.json({ success });
+});
+
+// Water reminder test
+router.post("/test-water", async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ message: "Token required" });
+
+  const success = await sendNotification(
+    token,
+    "💧 Paani Piyo!",
+    "Hydrated rehna zaroori hai — ab ek glass paani piyo! 💧",
+  );
+  res.json({ success });
+});
+
+// Expiry reminder test
+router.post("/test-expiry", async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ message: "Token required" });
+
+  const success = await sendNotification(
+    token,
+    "⚠️ Membership Expiry Alert!",
+    "Aapki membership 3 din mein expire hogi! Abhi renew karo 💳",
+  );
+  res.json({ success });
+});
+
+// Badge achievement test
+router.post("/test-badge", async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ message: "Token required" });
+
+  const success = await sendNotification(
+    token,
+    "🏆 New Achievement!",
+    "7 Day Warrior badge mila! Tumhari consistency amazing hai! 🔥",
+  );
+  res.json({ success });
+});
 
 module.exports = { router, sendNotification };

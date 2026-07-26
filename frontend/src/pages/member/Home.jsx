@@ -703,6 +703,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
+import { initNotifications } from "../../lib/notifications";
 
 function Home() {
   const navigate = useNavigate();
@@ -733,6 +734,11 @@ function Home() {
   useEffect(() => {
     if (user?.id) fetchMemberData();
   }, [user]);
+  useEffect(() => {
+    if (user?.id) {
+      initNotifications(user.id);
+    }
+  }, [user?.id]);
 
   const fetchMemberData = async () => {
     setLoading(true);
