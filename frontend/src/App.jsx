@@ -19,6 +19,7 @@ import Workout from "./pages/member/Workout";
 import Attendance from "./pages/member/Attendance";
 import Payments from "./pages/member/Payments";
 import Profile from "./pages/member/Profile";
+import Diet from "./pages/member/Diet";
 
 // Owner Pages
 import OwnerLogin from "./pages/owner/OwnerLogin";
@@ -45,7 +46,13 @@ function BackButtonHandler() {
   const location = useLocation();
 
   useEffect(() => {
-    const memberTabs = ["/workout", "/attendance", "/payments", "/profile"];
+    const memberTabs = [
+      "/workout",
+      "/diet",
+      "/attendance",
+      "/payments",
+      "/profile",
+    ];
     const ownerTabs = [
       "/owner/members",
       "/owner/payments",
@@ -143,6 +150,14 @@ function App() {
           element={
             <MemberRoute>
               <Workout />
+            </MemberRoute>
+          }
+        />
+        <Route
+          path="/diet"
+          element={
+            <MemberRoute>
+              <Diet />
             </MemberRoute>
           }
         />
