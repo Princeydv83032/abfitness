@@ -207,6 +207,7 @@ import { supabase } from "../../lib/supabase";
 import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
 import StreakCard from "../../components/StreakCard";
+import WaterTracker from "../../components/WaterTracker";
 
 function Home() {
   const navigate = useNavigate();
@@ -354,6 +355,10 @@ function Home() {
 
       {/* Streak Card */}
       {streak && <StreakCard streak={streak} getStreakEmoji={getStreakEmoji} />}
+      {/* Water Tracker */}
+      <WaterTracker memberId={user?.id} />
+
+      {/* Stats */}
 
       {/* Stats */}
       <div className="flex gap-2 mb-4">
