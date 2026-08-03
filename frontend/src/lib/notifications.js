@@ -36,6 +36,24 @@ export async function initNotifications(memberId) {
     console.log("FCM Token:", token);
 
     // Token Supabase mein save karo
+    // await supabase.from("fcm_tokens").upsert(
+    //   {
+    //     member_id: memberId,
+    //     token: token,
+    //   },
+    //   { onConflict: "member_id" },
+    // );
+
+    // Token Supabase mein save karo
+    // Pehle same token ka purana record delete karo
+    await supabase
+      .from("fcm_tokens")
+      .delete()
+      .eq("token", token)
+      .neq("member_id", memberId);
+    // Same token → different member → delete karo
+
+    // Phir upsert karo
     await supabase.from("fcm_tokens").upsert(
       {
         member_id: memberId,
@@ -55,7 +73,7 @@ export async function initNotifications(memberId) {
           registration.showNotification(title, {
             body,
             icon: icon || "/icon-192.png",
-            badge: "/icon-192.png",
+            badge: "/notification-icon.png",
             vibrate: [200, 100, 200],
             data: payload.fcmOptions,
           });

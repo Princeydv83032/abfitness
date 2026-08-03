@@ -48,7 +48,7 @@ const sendNotification = async (token, title, body) => {
           title,
           body,
           icon: "https://abfitness-beryl.vercel.app/icon-192.png",
-          badge: "https://abfitness-beryl.vercel.app/icon-192.png",
+          badge: "https://abfitness-beryl.vercel.app/notification-icon.png",
         },
         fcmOptions: {
           link: "https://abfitness-beryl.vercel.app",
