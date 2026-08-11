@@ -18,6 +18,11 @@ function Settings() {
   const [upiId, setUpiId] = useState("");
   const [qrUrl, setQrUrl] = useState("");
 
+  const [gymLat, setGymLat] = useState("");
+  const [gymLng, setGymLng] = useState("");
+  const [geoRadius, setGeoRadius] = useState(100);
+  const [locating, setLocating] = useState(false);
+
   const [fees, setFees] = useState({
     monthly: 1500,
     quarterly: 4000,
@@ -42,6 +47,9 @@ function Settings() {
       setTiming(data.timing || "5:00 AM - 10:00 PM");
       setUpiId(data.upi_id || "");
       setQrUrl(data.upi_qr_url || "");
+      setGymLat(data.gym_lat || "");
+      setGymLng(data.gym_lng || "");
+      setGeoRadius(data.geo_radius || 100);
       if (data.settings?.fees) setFees(data.settings.fees);
       if (data.settings?.notifications)
         setNotifications(data.settings.notifications);
@@ -89,6 +97,28 @@ function Settings() {
     }
   };
 
+  const detectLocation = () => {
+    setLocating(true);
+    if (!navigator.geolocation) {
+      alert("Location not supported");
+      setLocating(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGymLat(pos.coords.latitude);
+        setGymLng(pos.coords.longitude);
+        setLocating(false);
+        alert("✅ Gym location captured! Save karo.");
+      },
+      (err) => {
+        alert("Location access denied");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true },
+    );
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setSuccess(false);
@@ -99,6 +129,9 @@ function Settings() {
         gym_name: gymName,
         timing: timing,
         upi_id: upiId,
+        gym_lat: gymLat || null,
+        gym_lng: gymLng || null,
+        geo_radius: geoRadius || 100,
         settings: { fees, notifications },
       })
       .eq("gym_name", gymName);
@@ -282,6 +315,77 @@ function Settings() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Geo-fencing */}
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+        📍 Attendance Location
+      </p>
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl p-4 mb-5">
+        {/* Status */}
+        {gymLat && gymLng ? (
+          <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 mb-3">
+            <p className="text-green-400 text-xs font-bold">
+              ✅ Gym Location Set
+            </p>
+            <p className="text-slate-400 text-xs mt-1">
+              {parseFloat(gymLat).toFixed(6)}, {parseFloat(gymLng).toFixed(6)}
+            </p>
+            <p className="text-slate-500 text-xs mt-0.5">
+              Members can only check-in within {geoRadius}m
+            </p>
+          </div>
+        ) : (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-3">
+            <p className="text-amber-400 text-xs font-bold">
+              ⚠️ Location Not Set
+            </p>
+            <p className="text-slate-400 text-xs mt-1">
+              Members can check-in from anywhere
+            </p>
+          </div>
+        )}
+
+        {/* Radius */}
+        <div className="mb-3">
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Allowed Radius
+          </label>
+          <div className="flex items-center gap-2 bg-[#0d0d14] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
+            <span>📏</span>
+            <input
+              type="number"
+              value={geoRadius}
+              onChange={(e) => setGeoRadius(parseInt(e.target.value) || 100)}
+              className="bg-transparent outline-none text-white text-sm flex-1"
+            />
+            <span className="text-slate-400 text-xs font-bold">meters</span>
+          </div>
+        </div>
+
+        {/* Set Location Button */}
+        <button
+          onClick={detectLocation}
+          disabled={locating}
+          className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+        >
+          {locating
+            ? "⏳ Detecting location..."
+            : "📍 Set Current Location as Gym"}
+        </button>
+
+        {/* Remove Location */}
+        {gymLat && gymLng && (
+          <button
+            onClick={() => {
+              setGymLat("");
+              setGymLng("");
+            }}
+            className="w-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold py-2.5 rounded-xl text-xs mt-2"
+          >
+            🗑️ Remove Location Restriction
+          </button>
+        )}
       </div>
 
       {/* Notifications */}
