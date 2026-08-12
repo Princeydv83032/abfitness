@@ -119,7 +119,7 @@ function Login() {
       const result = await signInWithPopup(auth, googleProvider);
       const googleUser = result.user;
 
-      // Supabase mein check karo — email se member dhundho
+      // Supabase mein email se dhundho
       const { data: member } = await supabase
         .from("members")
         .select("*")
@@ -139,7 +139,7 @@ function Login() {
         }
       }
 
-      // Member nahi mila — register karo
+      // Member nahi mila → Register karo
       navigate("/register", {
         state: {
           googleUser: {
