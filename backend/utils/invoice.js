@@ -1,4 +1,4 @@
-const { jsPDF } = require("jspdf");
+const PDFDocument = require("pdfkit");
 
 function generateInvoicePDF({
   memberName,
@@ -9,118 +9,126 @@ function generateInvoicePDF({
   invoiceNo,
   gymName,
 }) {
-  const doc = new jsPDF();
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const chunks = [];
 
-  // Colors
-  const purple = [124, 58, 237];
-  const black = [26, 26, 26];
-  const gray = [100, 100, 100];
-  const light = [245, 240, 255];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
 
-  // ── Header Background ──
-  doc.setFillColor(...purple);
-  doc.rect(0, 0, 210, 45, "F");
+    // ── Header ──────────────────────────────────────
+    doc.rect(0, 0, 612, 100).fill("#7c3aed");
 
-  // ── Gym Name ──
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
-  doc.setFont("helvetica", "bold");
-  doc.text(gymName || "AB Fitness", 15, 20);
+    doc
+      .fillColor("white")
+      .fontSize(28)
+      .font("Helvetica-Bold")
+      .text(gymName || "AB Fitness", 50, 30);
 
-  // ── Subtitle ──
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text("Payment Invoice", 15, 30);
+    doc.fontSize(11).font("Helvetica").text("Payment Invoice", 50, 65);
 
-  // ── Invoice No + Date ──
-  doc.setFontSize(9);
-  doc.text(`Invoice: ${invoiceNo}`, 140, 20);
-  doc.text(
-    `Date: ${new Date(date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })}`,
-    140,
-    28,
-  );
+    doc
+      .fontSize(9)
+      .text(`Invoice: ${invoiceNo}`, 400, 30)
+      .text(
+        `Date: ${new Date(date).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })}`,
+        400,
+        45,
+      );
 
-  // ── Member Info Box ──
-  doc.setFillColor(...light);
-  doc.roundedRect(15, 55, 180, 40, 3, 3, "F");
+    // ── Member Info ──────────────────────────────────
+    doc.rect(50, 120, 512, 70).fill("#f5f0ff").stroke("#e9d5ff");
 
-  doc.setTextColor(...black);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text("Member Details", 20, 68);
+    doc
+      .fillColor("#1a1a1a")
+      .fontSize(12)
+      .font("Helvetica-Bold")
+      .text("Member Details", 65, 133);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(...gray);
-  doc.text(`Name:`, 20, 78);
-  doc.text(`Member ID:`, 20, 86);
+    doc
+      .fontSize(10)
+      .font("Helvetica")
+      .fillColor("#555")
+      .text("Name:", 65, 153)
+      .text("Member ID:", 65, 168);
 
-  doc.setTextColor(...black);
-  doc.text(memberName, 55, 78);
-  doc.text(memberId, 55, 86);
+    doc
+      .fillColor("#1a1a1a")
+      .text(memberName, 160, 153)
+      .text(memberId, 160, 168);
 
-  // ── Payment Details ──
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...black);
-  doc.text("Payment Details", 15, 110);
+    // ── Payment Details ──────────────────────────────
+    doc
+      .fillColor("#1a1a1a")
+      .fontSize(12)
+      .font("Helvetica-Bold")
+      .text("Payment Details", 50, 215);
 
-  // Table Header
-  doc.setFillColor(...purple);
-  doc.rect(15, 115, 180, 10, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.text("Description", 20, 122);
-  doc.text("Plan", 100, 122);
-  doc.text("Amount", 165, 122);
+    // Table Header
+    doc.rect(50, 232, 512, 25).fill("#7c3aed");
+    doc
+      .fillColor("white")
+      .fontSize(10)
+      .font("Helvetica-Bold")
+      .text("Description", 65, 240)
+      .text("Plan", 280, 240)
+      .text("Amount", 460, 240);
 
-  // Table Row
-  doc.setFillColor(250, 248, 255);
-  doc.rect(15, 125, 180, 12, "F");
-  doc.setTextColor(...black);
-  doc.setFont("helvetica", "normal");
-  doc.text("Gym Membership Fee", 20, 133);
-  doc.text(
-    plan?.charAt(0).toUpperCase() + plan?.slice(1) || "Monthly",
-    100,
-    133,
-  );
-  doc.text(`Rs. ${amount?.toLocaleString("en-IN")}`, 155, 133);
+    // Table Row
+    doc.rect(50, 257, 512, 30).fill("#faf8ff").stroke("#e9d5ff");
+    doc
+      .fillColor("#1a1a1a")
+      .fontSize(10)
+      .font("Helvetica")
+      .text("Gym Membership Fee", 65, 268)
+      .text(
+        plan?.charAt(0).toUpperCase() + plan?.slice(1) || "Monthly",
+        280,
+        268,
+      )
+      .text(`Rs. ${amount?.toLocaleString("en-IN")}`, 445, 268);
 
-  // Total
-  doc.setFillColor(...purple);
-  doc.rect(15, 137, 180, 12, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.text("Total Amount", 20, 145);
-  doc.text(`Rs. ${amount?.toLocaleString("en-IN")}`, 155, 145);
+    // Total Row
+    doc.rect(50, 287, 512, 30).fill("#7c3aed");
+    doc
+      .fillColor("white")
+      .fontSize(11)
+      .font("Helvetica-Bold")
+      .text("Total Amount", 65, 298)
+      .text(`Rs. ${amount?.toLocaleString("en-IN")}`, 445, 298);
 
-  // ── Payment Status ──
-  doc.setFillColor(220, 252, 231);
-  doc.roundedRect(15, 158, 180, 15, 3, 3, "F");
-  doc.setTextColor(22, 163, 74);
-  doc.setFontSize(11);
-  doc.text("✓ PAYMENT SUCCESSFUL", 55, 168);
+    // ── Payment Status ───────────────────────────────
+    doc.rect(50, 335, 512, 35).fill("#dcfce7").stroke("#86efac");
+    doc
+      .fillColor("#16a34a")
+      .fontSize(13)
+      .font("Helvetica-Bold")
+      .text("✓  PAYMENT SUCCESSFUL", 170, 347);
 
-  // ── Footer ──
-  doc.setFillColor(...purple);
-  doc.rect(0, 270, 210, 27, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text("Thank you for being a member!", 72, 280);
-  doc.text(
-    `${gymName || "AB Fitness"} — Your fitness journey starts here 💪`,
-    45,
-    288,
-  );
+    // ── Footer ───────────────────────────────────────
+    doc.rect(0, 750, 612, 92).fill("#7c3aed");
+    doc
+      .fillColor("white")
+      .fontSize(10)
+      .font("Helvetica")
+      .text("Thank you for being a member!", 50, 770, {
+        align: "center",
+        width: 512,
+      })
+      .text(
+        `${gymName || "AB Fitness"} — Your fitness journey starts here 💪`,
+        50,
+        790,
+        { align: "center", width: 512 },
+      );
 
-  return doc.output("arraybuffer");
+    doc.end();
+  });
 }
 
 module.exports = { generateInvoicePDF };
