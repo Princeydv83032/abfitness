@@ -19,7 +19,6 @@ function Register() {
   const [error, setError] = useState("");
 
   const [name, setName] = useState(googleUser?.name || "");
-  const [phone, setPhone] = useState("");
   const [age, setAge] = useState("");
   const [goal, setGoal] = useState("Build Muscle");
   const [plan, setPlan] = useState("monthly");
