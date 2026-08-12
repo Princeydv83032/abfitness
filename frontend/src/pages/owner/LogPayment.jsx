@@ -21,7 +21,7 @@ function LogPayment() {
   const fetchMembers = async () => {
     const { data } = await supabase
       .from("members")
-      .select("id, name, member_id, plan, expires_at")
+      .select("id, name, member_id, plan, expires_at, email") // ← email add karo
       .order("name");
     if (data) setMembers(data);
   };
@@ -84,6 +84,8 @@ function LogPayment() {
       if (memberError) throw memberError;
 
       // Email bhejo — background mein
+      console.log("Selected member email:", selectedMember.email);
+      console.log("Payment data:", paymentData);
       if (selectedMember.email && paymentData?.id) {
         try {
           await fetch(
@@ -97,6 +99,10 @@ function LogPayment() {
               }),
             },
           );
+          console.log("Sending invoice email...");
+          console.log("Member:", selectedMember.id);
+          console.log("Payment:", paymentData?.id);
+          console.log("API URL:", import.meta.env.VITE_API_URL);
           console.log("Invoice email sent ✅");
         } catch (err) {
           console.log("Email error:", err);
