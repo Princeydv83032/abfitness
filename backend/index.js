@@ -5,9 +5,17 @@ const cron = require("node-cron");
 
 const app = express();
 
+const allowedOrigins = ["http://localhost:5173", "https://abfitness-beryl.vercel.app"];
+const vercelPreviewPattern = /^https:\/\/abfitness-[\w-]+\.vercel\.app$/;
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://abfitness-beryl.vercel.app"],
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || vercelPreviewPattern.test(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
