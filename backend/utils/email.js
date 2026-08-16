@@ -20,7 +20,7 @@ async function sendInvoiceEmail({ member, payment, gymName }) {
     const invoiceNo = `INV-${Date.now()}`;
 
     // PDF generate karo
-    const pdfBuffer = generateInvoicePDF({
+    const pdfBuffer = await generateInvoicePDF({
       memberName: member.name,
       memberId: member.member_id,
       plan: payment.plan,
