@@ -41,6 +41,83 @@ function Payments() {
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
+  const handleRazorpayPayment = async (plan, amount) => {
+    try {
+      // Step 1 — Order create karo
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/payment/create-order`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount, memberId: user.id, plan }),
+        }
+      );
+      const order = await res.json();
+
+      if (!order.success) {
+        alert("Payment failed. Try again.");
+        return;
+      }
+
+      // Step 2 — Razorpay checkout open karo
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: "INR",
+        name: "BS Fitness",
+        description: `${plan} Membership`,
+        order_id: order.orderId,
+        prefill: {
+          name: user?.name,
+          email: user?.email,
+          contact: user?.phone,
+        },
+        theme: { color: "#7c3aed" },
+
+        handler: async (response) => {
+          // Step 3 — Payment verify karo
+          const verifyRes = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/payment/verify`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                memberId: user.id,
+                plan,
+                amount,
+              }),
+            }
+          );
+          const result = await verifyRes.json();
+
+          if (result.success) {
+            alert(
+              `✅ Payment Successful!\nMembership valid till: ${result.expiresAt}`
+            );
+            window.location.reload();
+          } else {
+            alert("Payment verification failed!");
+          }
+        },
+
+        modal: {
+          ondismiss: () => {
+            console.log("Payment cancelled");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.log("Payment error:", err);
+      alert("Something went wrong!");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
@@ -84,6 +161,35 @@ function Payments() {
             })}
           </span>
         </div>
+      </div>
+
+      {/* Renew Membership */}
+      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+        Renew Membership
+      </p>
+      <div className="space-y-2 mb-4">
+        {[
+          { plan: "monthly", label: "Monthly", amount: 1500, duration: "30 days" },
+          { plan: "quarterly", label: "Quarterly", amount: 4000, duration: "90 days" },
+          { plan: "yearly", label: "Yearly", amount: 15000, duration: "365 days" },
+        ].map((p) => (
+          <button
+            key={p.plan}
+            onClick={() => handleRazorpayPayment(p.plan, p.amount)}
+            className="w-full bg-[#1a1a2e] border border-white/7 rounded-xl p-4 flex justify-between items-center"
+          >
+            <div className="text-left">
+              <p className="text-white font-black text-sm">{p.label}</p>
+              <p className="text-slate-400 text-xs">{p.duration}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-purple-400 font-black">
+                ₹{p.amount.toLocaleString("en-IN")}
+              </p>
+              <p className="text-xs text-slate-500">Pay Now →</p>
+            </div>
+          </button>
+        ))}
       </div>
 
       {/* QR Code */}
