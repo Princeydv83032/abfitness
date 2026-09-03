@@ -9,12 +9,7 @@ function PendingApproval() {
   const setMember = useAuthStore((state) => state.setMember);
   const logout = useAuthStore((state) => state.logout);
   const [checking, setChecking] = useState(false);
-
-  useEffect(() => {
-    // Real time status check
-    const interval = setInterval(checkStatus, 30000); // Har 30 second
-    return () => clearInterval(interval);
-  }, []);
+  const [cancelling, setCancelling] = useState(false);
 
   const checkStatus = async () => {
     if (!user?.id) return;
@@ -32,6 +27,43 @@ function PendingApproval() {
     }
 
     setChecking(false);
+  };
+
+  useEffect(() => {
+    // Real time status check
+    const interval = setInterval(checkStatus, 30000); // Har 30 second
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleCancelRequest = async () => {
+    if (!user?.id) {
+      logout();
+      navigate("/login");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Cancel your join request? You'll need to register again to rejoin.",
+      )
+    )
+      return;
+
+    setCancelling(true);
+    try {
+      // status: "pending" guard — never delete a member the owner may have
+      // just approved (avoids a race with the 30s status poll)
+      await supabase
+        .from("members")
+        .delete()
+        .eq("id", user.id)
+        .eq("status", "pending");
+    } catch (err) {
+      console.log("Cancel request error:", err);
+    } finally {
+      logout();
+      navigate("/login");
+    }
   };
 
   return (
@@ -67,12 +99,7 @@ function PendingApproval() {
           { icon: "👤", label: user?.name || "--" },
           { icon: "📱", label: `+91 ${user?.phone || "--"}` },
           { icon: "🎯", label: user?.goal || "General Fitness" },
-          {
-            icon: "📅",
-            label: user?.plan
-              ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1) + " Plan"
-              : "--",
-          },
+          { icon: "📧", label: user?.email || "--" },
         ].map((row, i) => (
           <div
             key={i}
@@ -108,15 +135,13 @@ function PendingApproval() {
         Need help? Contact your gym owner
       </p>
 
-      {/* Logout */}
+      {/* Cancel Request */}
       <button
-        onClick={() => {
-          logout();
-          navigate("/login");
-        }}
-        className="mt-4 text-red-400 text-xs font-bold"
+        onClick={handleCancelRequest}
+        disabled={cancelling}
+        className="mt-4 text-red-400 text-xs font-bold disabled:opacity-50"
       >
-        Cancel Request
+        {cancelling ? "⏳ Cancelling..." : "Cancel Request"}
       </button>
 
       <style>{`
