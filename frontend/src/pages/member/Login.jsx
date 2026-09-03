@@ -1,21 +1,77 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../../lib/firebase";
-import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+// OTP login temporarily disabled — see comment block below
+// import { auth } from "../../lib/firebase";
+// import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { auth, googleProvider } from "../../lib/firebase";
+import { signInWithPopup } from "firebase/auth";
 import { supabase } from "../../lib/supabase";
 import useAuthStore from "../../store/authStore";
-import { signInWithPopup } from "firebase/auth";
-import { googleProvider } from "../../lib/firebase";
 
 function Login() {
+  // const [phone, setPhone] = useState("");
+  // const [otpSent, setOtpSent] = useState(false);
+  // const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
+  // const [confirm, setConfirm] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const setMember = useAuthStore((state) => state.setMember);
+
+  // ── Find an existing member by Google uid (preferred) or email ──────
+  // .limit(1) instead of .maybeSingle() — .maybeSingle() throws if more
+  // than one row matches, which silently looked like "not found" and
+  // caused a fresh duplicate member to be created on every login.
+  const findMemberByGoogle = async (googleUser) => {
+    const { data } = await supabase
+      .from("members")
+      .select("*")
+      .or(`google_id.eq.${googleUser.uid},email.eq.${googleUser.email}`)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    return data?.[0] || null;
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const googleUser = result.user;
+
+      const member = await findMemberByGoogle(googleUser);
+
+      if (!member) {
+        setError(
+          "No account found with this Google account. Please register first.",
+        );
+        return;
+      }
+
+      // Keep google_id in sync (covers members who first joined via phone/OTP)
+      if (!member.google_id) {
+        await supabase
+          .from("members")
+          .update({ google_id: googleUser.uid })
+          .eq("id", member.id);
+      }
+
+      setMember(member);
+      navigate(member.status === "pending" ? "/pending" : "/home");
+    } catch (err) {
+      console.log("Google login error:", err);
+      setError("Google login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ── OTP-based phone login — temporarily disabled ──────────────────
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [confirm, setConfirm] = useState(null);
-  const navigate = useNavigate();
-  const setMember = useAuthStore((state) => state.setMember);
 
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier) {
@@ -110,199 +166,57 @@ function Login() {
       setLoading(false);
     }
   };
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const googleUser = result.user;
-
-      // Supabase mein email se dhundho
-      const { data: member } = await supabase
-        .from("members")
-        .select("*")
-        .eq("email", googleUser.email)
-        .maybeSingle();
-
-      if (member) {
-        if (member.status === "pending") {
-          setMember(member);
-          navigate("/pending");
-          return;
-        }
-        if (member.status === "active") {
-          setMember(member);
-          navigate("/home");
-          return;
-        }
-      }
-
-      // Member nahi mila → Register karo
-      navigate("/register", {
-        state: {
-          googleUser: {
-            name: googleUser.displayName,
-            email: googleUser.email,
-            photo: googleUser.photoURL,
-            uid: googleUser.uid,
-          },
-        },
-      });
-    } catch (err) {
-      console.log("Google login error:", err);
-      setError("Google login failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  ── end OTP block ──────────────────────────────────────────────── */
 
   return (
     <div className="min-h-screen bg-[#0d0d14] flex flex-col items-center justify-center px-6">
-      <div id="recaptcha-container"></div>
+      {/* <div id="recaptcha-container"></div> */}
 
-      <div className="text-5xl mb-6">{otpSent ? "🔐" : "📱"}</div>
-
-      {/* Temporary Message */}
-      <div className="w-full max-w-sm bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-4">
-        <p className="text-amber-400 text-xs font-bold text-center">
-          ⚠️ OTP service temporarily unavailable
-        </p>
-        <p className="text-slate-400 text-xs text-center mt-1">
-          Please use{" "}
-          <span className="text-white font-bold">Continue with Google</span> to
-          login
-        </p>
-      </div>
+      <div className="text-5xl mb-6">🏋️</div>
 
       <h1 className="text-3xl font-black text-white tracking-tight">
-        {otpSent ? "Enter OTP" : "Welcome back!"}
+        Welcome back!
       </h1>
       <p className="text-slate-400 text-sm mt-2 text-center">
-        {otpSent
-          ? `6 digit code sent to +91 ${phone}`
-          : "Enter your phone number to access your gym account"}
+        Login with your Google account to access your gym account
       </p>
 
       <div className="w-full max-w-sm mt-8 space-y-4">
-        {!otpSent ? (
-          <>
-            <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                Mobile Number
-              </label>
-              <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-2">
-                <span className="text-slate-400 text-sm">+91</span>
-                <div className="w-px h-4 bg-white/20"></div>
-                <input
-                  type="tel"
-                  placeholder="Enter 10 digit number"
-                  maxLength={10}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                  className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600"
-                />
-              </div>
-            </div>
+        {error && <p className="text-red-400 text-xs text-center">{error}</p>}
 
-            {error && <p className="text-red-400 text-xs">{error}</p>}
+        {/* Google Login */}
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full bg-white text-gray-800 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-3 disabled:opacity-50"
+        >
+          <svg width="18" height="18" viewBox="0 0 48 48">
+            <path
+              fill="#FFC107"
+              d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-9 20-20 0-1.3-.1-2.7-.4-4z"
+            />
+            <path
+              fill="#FF3D00"
+              d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"
+            />
+            <path
+              fill="#4CAF50"
+              d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.6 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.6 4.8C9.7 39.6 16.3 44 24 44z"
+            />
+            <path
+              fill="#1976D2"
+              d="M43.6 20H24v8h11.3c-.8 2.3-2.3 4.2-4.3 5.5l6.2 5.2C41 35.3 44 30 44 24c0-1.3-.1-2.7-.4-4z"
+            />
+          </svg>
+          {loading ? "⏳ Please wait..." : "Login with Google"}
+        </button>
 
-            <button
-              onClick={handleSendOTP}
-              disabled={phone.length !== 10 || loading}
-              className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
-            >
-              {loading ? "⏳ Sending OTP..." : "Send OTP →"}
-            </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3 my-2">
-              <div className="flex-1 h-px bg-white/10"></div>
-              <span className="text-slate-500 text-xs">OR</span>
-              <div className="flex-1 h-px bg-white/10"></div>
-            </div>
-
-            {/* Google Login */}
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full bg-white text-gray-800 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              <svg width="18" height="18" viewBox="0 0 48 48">
-                <path
-                  fill="#FFC107"
-                  d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-9 20-20 0-1.3-.1-2.7-.4-4z"
-                />
-                <path
-                  fill="#FF3D00"
-                  d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.4 6.3 14.7z"
-                />
-                <path
-                  fill="#4CAF50"
-                  d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.6 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.6 4.8C9.7 39.6 16.3 44 24 44z"
-                />
-                <path
-                  fill="#1976D2"
-                  d="M43.6 20H24v8h11.3c-.8 2.3-2.3 4.2-4.3 5.5l6.2 5.2C41 35.3 44 30 44 24c0-1.3-.1-2.7-.4-4z"
-                />
-              </svg>
-              Continue with Google
-            </button>
-
-            <button
-              onClick={() => navigate("/register")}
-              className="w-full bg-[#1a1a2e] border border-purple-500/30 text-purple-400 font-bold py-3 rounded-xl text-sm"
-            >
-              🆕 New Member? Join Here →
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="flex gap-2 justify-center my-4">
-              {otpDigits.map((digit, i) => (
-                <input
-                  key={i}
-                  id={`otp-${i}`}
-                  type="tel"
-                  maxLength={6}
-                  value={digit}
-                  onChange={(e) => handleOtpChange(e.target.value, i)}
-                  onKeyDown={(e) => handleOtpKeyDown(e, i)}
-                  className={`w-11 h-14 text-center text-xl font-black rounded-xl border-2 outline-none transition-all
-                    ${
-                      digit
-                        ? "bg-purple-600/20 border-purple-500 text-white"
-                        : "bg-[#1a1a2e] border-white/10 text-white"
-                    } focus:border-purple-500 focus:bg-purple-600/10`}
-                />
-              ))}
-            </div>
-
-            {error && (
-              <p className="text-red-400 text-xs text-center">{error}</p>
-            )}
-
-            <button
-              onClick={handleVerifyOTP}
-              disabled={otpDigits.join("").length !== 6 || loading}
-              className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
-            >
-              {loading ? "⏳ Verifying..." : "Verify & Login →"}
-            </button>
-
-            <button
-              onClick={() => {
-                setOtpSent(false);
-                setOtpDigits(["", "", "", "", "", ""]);
-                setError("");
-              }}
-              className="w-full text-center text-slate-400 text-xs"
-            >
-              ← Change number
-            </button>
-          </>
-        )}
+        <button
+          onClick={() => navigate("/register")}
+          className="w-full bg-[#1a1a2e] border border-purple-500/30 text-purple-400 font-bold py-3 rounded-xl text-sm"
+        >
+          🆕 New Member? Register with Google →
+        </button>
       </div>
     </div>
   );
