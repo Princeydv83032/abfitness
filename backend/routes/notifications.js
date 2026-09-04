@@ -175,19 +175,17 @@ try {
   const { cert, initializeApp, getApps } = require("firebase-admin/app");
   const { getMessaging } = require("firebase-admin/messaging");
 
+  // Always load the full credential as one consistent JSON blob - never
+  // hand-assemble it from separate env vars. private_key_id/client_id
+  // MUST come from the exact same key file as private_key, or Google
+  // rejects the JWT with "invalid_grant: Invalid JWT Signature" (which is
+  // what a previous version of this file did: it hardcoded
+  // private_key_id/client_id from an old key while private_key came from
+  // a newer, different FIREBASE_PRIVATE_KEY env var)
   let serviceAccount;
 
-  if (process.env.FIREBASE_PRIVATE_KEY) {
-    serviceAccount = {
-      type: "service_account",
-      project_id: "abfitness-105c2",
-      private_key_id: "ac411702e415d762d8adda0367f059d2059ba3ce",
-      private_key: process.env.FIREBASE_PRIVATE_KEY,
-      client_email: process.env.FIREBASE_CLIENT_EMAIL,
-      client_id: "113069557817138653461",
-      auth_uri: "https://accounts.google.com/o/oauth2/auth",
-      token_uri: "https://oauth2.googleapis.com/token",
-    };
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   } else {
     serviceAccount = require(path.join(__dirname, "../serviceAccount.json"));
   }
