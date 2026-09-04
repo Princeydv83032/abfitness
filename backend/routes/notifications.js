@@ -362,7 +362,14 @@ router.post("/send-invoice", async (req, res) => {
   }
 });
 
-// ── Send Welcome Email ───────────────────────────────
+// ── Send Welcome (push + email) ──────────────────────
+// Idempotent per channel via welcome_push_sent / welcome_email_sent - safe
+// to call more than once for the same member. This matters because a
+// member has no fcm_tokens row yet at approval time (initNotifications()
+// only runs once they reach Home, i.e. after approval), so the push here
+// usually can't go out immediately. Home.jsx calls this route again right
+// after it saves the member's first token, and this route only actually
+// (re)sends whichever channel hasn't gone out yet.
 router.post("/send-welcome", async (req, res) => {
   const { memberId } = req.body;
 
@@ -384,12 +391,43 @@ router.post("/send-welcome", async (req, res) => {
       return res.status(404).json({ message: "Member not found" });
     }
 
-    const success = await sendWelcomeEmail({
-      member,
-      gymName: owner?.gym_name,
-    });
+    let pushSent = member.welcome_push_sent || false;
+    let emailSent = member.welcome_email_sent || false;
 
-    res.json({ success });
+    // Push — sirf tab try karo jab token available ho aur pehle bheja na ho
+    if (!pushSent) {
+      const { data: tokenData } = await supabase
+        .from("fcm_tokens")
+        .select("token")
+        .eq("member_id", memberId)
+        .maybeSingle();
+
+      if (tokenData?.token) {
+        const result = await sendNotification(
+          tokenData.token,
+          `🎉 Welcome to ${owner?.gym_name || "AB Fitness"}!`,
+          `Hi ${member.name}! Your membership has been approved. Let's start your fitness journey! 💪`,
+        );
+        if (result === true) pushSent = true;
+      }
+    }
+
+    // Email — sirf tab bhejo jab member ka email ho aur pehle bheja na ho
+    if (!emailSent && member.email) {
+      emailSent = await sendWelcomeEmail({ member, gymName: owner?.gym_name });
+    }
+
+    if (
+      pushSent !== (member.welcome_push_sent || false) ||
+      emailSent !== (member.welcome_email_sent || false)
+    ) {
+      await supabase
+        .from("members")
+        .update({ welcome_push_sent: pushSent, welcome_email_sent: emailSent })
+        .eq("id", memberId);
+    }
+
+    res.json({ success: true, pushSent, emailSent });
   } catch (err) {
     console.log("Welcome email error:", err.message);
     res.status(500).json({ success: false, error: err.message });
