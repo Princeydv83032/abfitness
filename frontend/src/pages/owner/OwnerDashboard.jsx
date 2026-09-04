@@ -378,6 +378,22 @@ function OwnerDashboard() {
       .eq("id", member.id);
 
     if (!error) {
+      // Welcome push notification + email — non-blocking, approval ko iski
+      // wajah se rokna nahi hai agar ye fail ho jaye
+      try {
+        await fetch(
+          `${import.meta.env.VITE_API_URL}/api/notifications/send-welcome`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ memberId: member.id }),
+          },
+        );
+        console.log("Welcome notification sent ✅");
+      } catch (err) {
+        console.log("Notification error:", err);
+      }
+
       alert(`✅ ${member.name} approved!`);
       fetchDashboard();
     }

@@ -111,7 +111,7 @@ async function sendWelcomeEmail({ member, gymName }) {
   try {
     if (!member.email) return false;
 
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: "AB Fitness <onboarding@resend.dev>",
       to: member.email,
       subject: `🎉 Welcome to ${gymName || "AB Fitness"}!`,
@@ -132,6 +132,14 @@ async function sendWelcomeEmail({ member, gymName }) {
         </div>
       `,
     });
+
+    // resend.emails.send() resolves with { error } on API-level rejection
+    // (e.g. sandbox sender restrictions) instead of throwing - was being
+    // silently swallowed here, logging "sent" even when nothing went out
+    if (error) {
+      console.log("Welcome email rejected by Resend:", error);
+      return false;
+    }
 
     console.log(`Welcome email sent to ${member.email} ✅`);
     return true;

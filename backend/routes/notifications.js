@@ -175,19 +175,17 @@ try {
   const { cert, initializeApp, getApps } = require("firebase-admin/app");
   const { getMessaging } = require("firebase-admin/messaging");
 
+  // Always load the full credential as one consistent JSON blob - never
+  // hand-assemble it from separate env vars. private_key_id/client_id
+  // MUST come from the exact same key file as private_key, or Google
+  // rejects the JWT with "invalid_grant: Invalid JWT Signature" (which is
+  // what a previous version of this file did: it hardcoded
+  // private_key_id/client_id from an old key while private_key came from
+  // a newer, different FIREBASE_PRIVATE_KEY env var)
   let serviceAccount;
 
-  if (process.env.FIREBASE_PRIVATE_KEY) {
-    serviceAccount = {
-      type: "service_account",
-      project_id: "abfitness-105c2",
-      private_key_id: "ac411702e415d762d8adda0367f059d2059ba3ce",
-      private_key: process.env.FIREBASE_PRIVATE_KEY,
-      client_email: process.env.FIREBASE_CLIENT_EMAIL,
-      client_id: "113069557817138653461",
-      auth_uri: "https://accounts.google.com/o/oauth2/auth",
-      token_uri: "https://oauth2.googleapis.com/token",
-    };
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   } else {
     serviceAccount = require(path.join(__dirname, "../serviceAccount.json"));
   }
@@ -362,7 +360,14 @@ router.post("/send-invoice", async (req, res) => {
   }
 });
 
-// ── Send Welcome Email ───────────────────────────────
+// ── Send Welcome (push + email) ──────────────────────
+// Idempotent per channel via welcome_push_sent / welcome_email_sent - safe
+// to call more than once for the same member. This matters because a
+// member has no fcm_tokens row yet at approval time (initNotifications()
+// only runs once they reach Home, i.e. after approval), so the push here
+// usually can't go out immediately. Home.jsx calls this route again right
+// after it saves the member's first token, and this route only actually
+// (re)sends whichever channel hasn't gone out yet.
 router.post("/send-welcome", async (req, res) => {
   const { memberId } = req.body;
 
@@ -384,12 +389,43 @@ router.post("/send-welcome", async (req, res) => {
       return res.status(404).json({ message: "Member not found" });
     }
 
-    const success = await sendWelcomeEmail({
-      member,
-      gymName: owner?.gym_name,
-    });
+    let pushSent = member.welcome_push_sent || false;
+    let emailSent = member.welcome_email_sent || false;
 
-    res.json({ success });
+    // Push — sirf tab try karo jab token available ho aur pehle bheja na ho
+    if (!pushSent) {
+      const { data: tokenData } = await supabase
+        .from("fcm_tokens")
+        .select("token")
+        .eq("member_id", memberId)
+        .maybeSingle();
+
+      if (tokenData?.token) {
+        const result = await sendNotification(
+          tokenData.token,
+          `🎉 Welcome to ${owner?.gym_name || "AB Fitness"}!`,
+          `Hi ${member.name}! Your membership has been approved. Let's start your fitness journey! 💪`,
+        );
+        if (result === true) pushSent = true;
+      }
+    }
+
+    // Email — sirf tab bhejo jab member ka email ho aur pehle bheja na ho
+    if (!emailSent && member.email) {
+      emailSent = await sendWelcomeEmail({ member, gymName: owner?.gym_name });
+    }
+
+    if (
+      pushSent !== (member.welcome_push_sent || false) ||
+      emailSent !== (member.welcome_email_sent || false)
+    ) {
+      await supabase
+        .from("members")
+        .update({ welcome_push_sent: pushSent, welcome_email_sent: emailSent })
+        .eq("id", memberId);
+    }
+
+    res.json({ success: true, pushSent, emailSent });
   } catch (err) {
     console.log("Welcome email error:", err.message);
     res.status(500).json({ success: false, error: err.message });

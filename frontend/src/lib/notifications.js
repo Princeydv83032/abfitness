@@ -62,6 +62,17 @@ export async function initNotifications(memberId) {
       { onConflict: "member_id" },
     );
 
+    // Approval ke waqt member ke paas abhi tak koi token nahi hota (wahi
+    // isi function se save hota hai), isliye welcome push us waqt nahi ja
+    // paata - ab token ban gaya hai to /send-welcome dobara try karo. Route
+    // khud idempotent hai (welcome_push_sent/welcome_email_sent check karta
+    // hai), isliye baar-baar call karna bhi safe hai
+    fetch(`${import.meta.env.VITE_API_URL}/api/notifications/send-welcome`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId }),
+    }).catch((err) => console.log("Welcome notify error:", err));
+
     // Foreground notifications handle karo
     onMessage(messaging, (payload) => {
       console.log("Foreground message:", payload);
