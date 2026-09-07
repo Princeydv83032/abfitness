@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import useAuthStore from "../../store/authStore";
+import { usePrices } from "../../hooks/usePrices";
+
+const PLAN_DAYS = { monthly: 30, quarterly: 90, yearly: 365 };
+const PLAN_LABELS = { monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly" };
 
 function Payments() {
   const user = useAuthStore((state) => state.user);
   const [payments, setPayments] = useState([]);
   const [member, setMember] = useState(null);
-  const [ownerData, setOwnerData] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (user?.id) fetchData();
-  }, [user]);
+  const [payingPlan, setPayingPlan] = useState(null);
+  const { prices, loading: pricesLoading } = usePrices();
 
   const fetchData = async () => {
     setLoading(true);
@@ -28,34 +29,48 @@ function Payments() {
       .eq("member_id", user.id)
       .order("paid_at", { ascending: false });
 
-    const { data: owner } = await supabase
-      .from("owner")
-      .select("upi_qr_url, upi_id, gym_name")
-      .single();
-
     if (memberData) setMember(memberData);
     if (paymentsData) setPayments(paymentsData);
-    if (owner) setOwnerData(owner);
     setLoading(false);
   };
 
+  useEffect(() => {
+    if (!user?.id) return;
+    queueMicrotask(fetchData);
+  }, [user]);
+
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
-  const handleRazorpayPayment = async (plan, amount) => {
+  // Renewal plans, sabse sasta per-day rate wala "Best Value" badge paata hai
+  const plans = Object.keys(PLAN_DAYS).map((plan) => {
+    const amount = prices[plan];
+    const days = PLAN_DAYS[plan];
+    return { plan, label: PLAN_LABELS[plan], amount, days, perDay: amount / days };
+  });
+  const monthlyPerDay = plans.find((p) => p.plan === "monthly")?.perDay || 0;
+  const bestValuePlan = plans.reduce(
+    (best, p) => (p.perDay < best.perDay ? p : best),
+    plans[0],
+  ).plan;
+
+  const handleRazorpayPayment = async (plan) => {
+    setPayingPlan(plan);
     try {
-      // Step 1 — Order create karo
+      // Step 1 — Order create karo — amount yahan se nahi bhejte, backend
+      // khud owner ke set kiye fees se calculate karta hai
       const res = await fetch(
         `${import.meta.env.VITE_API_URL}/api/payment/create-order`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount, memberId: user.id, plan }),
+          body: JSON.stringify({ memberId: user.id, plan }),
         }
       );
       const order = await res.json();
 
       if (!order.success) {
         alert("Payment failed. Try again.");
+        setPayingPlan(null);
         return;
       }
 
@@ -64,8 +79,8 @@ function Payments() {
         key: order.keyId,
         amount: order.amount,
         currency: "INR",
-        name: "BS Fitness",
-        description: `${plan} Membership`,
+        name: "AB Fitness",
+        description: `${PLAN_LABELS[plan]} Membership`,
         order_id: order.orderId,
         prefill: {
           name: user?.name,
@@ -85,9 +100,6 @@ function Payments() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                memberId: user.id,
-                plan,
-                amount,
               }),
             }
           );
@@ -100,12 +112,14 @@ function Payments() {
             window.location.reload();
           } else {
             alert("Payment verification failed!");
+            setPayingPlan(null);
           }
         },
 
         modal: {
           ondismiss: () => {
             console.log("Payment cancelled");
+            setPayingPlan(null);
           },
         },
       };
@@ -115,6 +129,7 @@ function Payments() {
     } catch (err) {
       console.log("Payment error:", err);
       alert("Something went wrong!");
+      setPayingPlan(null);
     }
   };
 
@@ -167,54 +182,74 @@ function Payments() {
       <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
         Renew Membership
       </p>
-      <div className="space-y-2 mb-4">
-        {[
-          { plan: "monthly", label: "Monthly", amount: 1500, duration: "30 days" },
-          { plan: "quarterly", label: "Quarterly", amount: 4000, duration: "90 days" },
-          { plan: "yearly", label: "Yearly", amount: 15000, duration: "365 days" },
-        ].map((p) => (
-          <button
-            key={p.plan}
-            onClick={() => handleRazorpayPayment(p.plan, p.amount)}
-            className="w-full bg-[#1a1a2e] border border-white/7 rounded-xl p-4 flex justify-between items-center"
-          >
-            <div className="text-left">
-              <p className="text-white font-black text-sm">{p.label}</p>
-              <p className="text-slate-400 text-xs">{p.duration}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-purple-400 font-black">
-                ₹{p.amount.toLocaleString("en-IN")}
-              </p>
-              <p className="text-xs text-slate-500">Pay Now →</p>
-            </div>
-          </button>
-        ))}
-      </div>
+      <div className="space-y-2.5 mb-6">
+        {pricesLoading
+          ? [1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-[92px] bg-[#1a1a2e] border border-white/7 rounded-2xl animate-pulse"
+              />
+            ))
+          : plans.map((p) => {
+              const savings =
+                p.plan === "monthly"
+                  ? 0
+                  : Math.round((1 - p.perDay / monthlyPerDay) * 100);
+              const isBestValue = p.plan === bestValuePlan && savings > 0;
+              const isPaying = payingPlan === p.plan;
 
-      {/* QR Code */}
-      {ownerData?.upi_qr_url && (
-        <div className="bg-[#1a1a2e] border border-purple-500/30 rounded-2xl p-4 mb-4 text-center">
-          <p className="text-white font-black text-sm mb-1">💳 Pay via UPI</p>
-          <p className="text-slate-400 text-xs mb-3">
-            Scan QR to renew your membership
-          </p>
-          <img
-            src={ownerData.upi_qr_url}
-            alt="UPI QR"
-            className="w-48 h-48 object-contain bg-white rounded-xl p-2 mx-auto"
-          />
-          {ownerData.upi_id && (
-            <div className="mt-3 bg-[#0d0d14] rounded-xl px-4 py-2 inline-block">
-              <p className="text-slate-400 text-xs">UPI ID</p>
-              <p className="text-white font-bold text-sm">{ownerData.upi_id}</p>
-            </div>
-          )}
-          <p className="text-slate-500 text-xs mt-3">
-            After payment — share transaction ID with gym owner
-          </p>
-        </div>
-      )}
+              return (
+                <button
+                  key={p.plan}
+                  onClick={() => handleRazorpayPayment(p.plan)}
+                  disabled={payingPlan !== null}
+                  className={`w-full text-left rounded-2xl p-4 border transition-all disabled:opacity-60
+                    ${
+                      isBestValue
+                        ? "bg-gradient-to-br from-purple-900/50 to-purple-700/20 border-purple-500/50"
+                        : "bg-[#1a1a2e] border-white/7"
+                    }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-black text-base">
+                          {p.label}
+                        </p>
+                        {isBestValue && (
+                          <span className="text-[10px] font-bold bg-purple-600 text-white px-2 py-0.5 rounded-full">
+                            BEST VALUE
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-400 text-xs mt-0.5">
+                        {p.days} days access
+                      </p>
+                      {savings > 0 && (
+                        <p className="text-green-400 text-xs font-bold mt-1">
+                          Save {savings}% vs monthly
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-white font-black text-xl tracking-tight">
+                        ₹{p.amount.toLocaleString("en-IN")}
+                      </p>
+                      <p className="text-slate-500 text-[11px]">
+                        ≈ ₹{Math.round(p.perDay)}/day
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={`mt-3 text-center font-bold text-sm py-2 rounded-xl
+                    ${isPaying ? "bg-purple-800 text-purple-200" : "bg-purple-600 text-white"}`}
+                  >
+                    {isPaying ? "⏳ Opening checkout..." : "Pay Now →"}
+                  </div>
+                </button>
+              );
+            })}
+      </div>
 
       {/* Total Paid */}
       <div className="bg-[#1a1a2e] border border-white/7 rounded-xl p-4 mb-4 text-center">
