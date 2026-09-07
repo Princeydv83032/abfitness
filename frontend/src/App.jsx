@@ -8,6 +8,8 @@ import {
   useLocation,
 } from "react-router-dom";
 import useAuthStore from "./store/authStore";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Member Pages
 import Splash from "./pages/member/Splash";
@@ -120,6 +122,15 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar
+        closeOnClick
+        pauseOnHover
+        theme="dark"
+        toastClassName="!bg-[#1a1a2e] !border !border-white/10 !rounded-xl"
+      />
       <BackButtonHandler />
 
       <Routes>
