@@ -16,9 +16,16 @@ export async function initNotifications(memberId) {
       return false;
     }
 
-    // Service worker manually register karo
+    // Service worker manually register karo - apne khud ke scope pe, taaki
+    // vite-plugin-pwa ke service worker (root "/" scope, autoUpdate wala)
+    // se takraav na ho. Root scope pe dono register hote to PWA wala
+    // control le leta (skipWaiting + clientsClaim), aur FCM push events
+    // usi galat SW pe jaate jise FCM handle karna aata hi nahi - isliye
+    // push "send" to ho jaata (backend se success milta) lekin device pe
+    // kabhi dikhta nahi
     const swRegistration = await navigator.serviceWorker.register(
       "/firebase-messaging-sw.js",
+      { scope: "/firebase-cloud-messaging-push-scope" },
     );
     await navigator.serviceWorker.ready;
 
@@ -36,31 +43,31 @@ export async function initNotifications(memberId) {
     console.log("FCM Token:", token);
 
     // Token Supabase mein save karo
-    // await supabase.from("fcm_tokens").upsert(
-    //   {
-    //     member_id: memberId,
-    //     token: token,
-    //   },
-    //   { onConflict: "member_id" },
-    // );
-
-    // Token Supabase mein save karo
-    // Pehle same token ka purana record delete karo
-    await supabase
+    // Pehle same token ka purana record delete karo (same token → different
+    // member → ho sakta hai wahi device pehle kisi aur member se login tha)
+    const { error: deleteError } = await supabase
       .from("fcm_tokens")
       .delete()
       .eq("token", token)
       .neq("member_id", memberId);
-    // Same token → different member → delete karo
+
+    if (deleteError) {
+      console.log("FCM token delete error:", deleteError);
+    }
 
     // Phir upsert karo
-    await supabase.from("fcm_tokens").upsert(
+    const { error: upsertError } = await supabase.from("fcm_tokens").upsert(
       {
         member_id: memberId,
         token: token,
       },
       { onConflict: "member_id" },
     );
+
+    if (upsertError) {
+      console.log("FCM token save error:", upsertError);
+      return false;
+    }
 
     // Approval ke waqt member ke paas abhi tak koi token nahi hota (wahi
     // isi function se save hota hai), isliye welcome push us waqt nahi ja
