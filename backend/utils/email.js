@@ -32,7 +32,7 @@ async function sendInvoiceEmail({ member, payment, gymName }) {
 
     // Email bhejo
     const { error } = await resend.emails.send({
-      from: "AB Fitness <onboarding@resend.dev>",
+      from: "AB Fitness <noreply@abfitness.devplex.in>",
       to: member.email,
       subject: `✅ Payment Confirmed — ${payment.plan} Plan | ${invoiceNo}`,
       html: `
@@ -112,7 +112,7 @@ async function sendWelcomeEmail({ member, gymName }) {
     if (!member.email) return false;
 
     const { error } = await resend.emails.send({
-      from: "AB Fitness <onboarding@resend.dev>",
+      from: "AB Fitness <noreply@abfitness.devplex.in>",
       to: member.email,
       subject: `🎉 Welcome to ${gymName || "AB Fitness"}!`,
       html: `
