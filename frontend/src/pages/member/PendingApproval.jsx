@@ -15,15 +15,19 @@ function PendingApproval() {
     if (!user?.id) return;
     setChecking(true);
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("members")
       .select("*")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
     if (data?.status === "active") {
       setMember(data);
       navigate("/home", { replace: true });
+    } else if (!data && !error) {
+      // Owner ne request approve karne se pehle hi reject/delete kar di
+      logout();
+      navigate("/login", { replace: true });
     }
 
     setChecking(false);
