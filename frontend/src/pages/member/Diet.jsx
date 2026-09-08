@@ -1228,10 +1228,6 @@ function Diet() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [savingCustom, setSavingCustom] = useState(false);
 
-  useEffect(() => {
-    if (user?.id) fetchMember();
-  }, [user]);
-
   const fetchMember = async () => {
     setLoading(true);
     const { data } = await supabase
@@ -1248,6 +1244,10 @@ function Diet() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (user?.id) queueMicrotask(fetchMember);
+  }, [user]);
 
   const toggleDiet = async (veg) => {
     setIsVeg(veg);
@@ -1456,12 +1456,19 @@ function Diet() {
               onChange={(e) => setNewMealName(e.target.value)}
               className="w-full bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none placeholder:text-slate-600"
             />
-            <input
-              placeholder="Time (e.g. 8:00 AM)"
-              value={newMealTime}
-              onChange={(e) => setNewMealTime(e.target.value)}
-              className="w-full bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none placeholder:text-slate-600"
-            />
+            <div>
+              <input
+                type="time"
+                step="900"
+                value={newMealTime}
+                onChange={(e) => setNewMealTime(e.target.value)}
+                className="w-full bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none"
+              />
+              <p className="text-slate-600 text-[10px] mt-1">
+                Time set karo to us waqt reminder notification bhi milegi
+                (khali chhodne pe "Anytime" — koi reminder nahi)
+              </p>
+            </div>
             <textarea
               placeholder="Food items (comma separated): Eggs, Milk, Toast"
               value={newMealItems}

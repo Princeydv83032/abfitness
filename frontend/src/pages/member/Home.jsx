@@ -343,8 +343,11 @@ function Home() {
         <WaterStatCard memberId={user?.id} />
       </div>
 
-      {/* Supplement Card */}
-      <SupplementCard memberId={user?.id} />
+      {/* Supplement Card — default hidden, sirf Settings mein "Take
+      Supplements" ON karne pe dikhta hai */}
+      {data?.notification_prefs?.takesSupplements && (
+        <SupplementCard memberId={user?.id} />
+      )}
 
       {/* Quick Actions */}
       <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2 mt-1">

@@ -35,14 +35,14 @@ app.get("/", (req, res) => {
 // ── Cron Jobs ─────────────────────────────────────────
 const {
   sendMorningNotifications,
-  sendSupplementReminder,
-  sendDietReminder,
   sendWaterReminder,
-  sendEveningWorkout,
   sendStreakReminder,
-  sendPreSleepReminder,
   sendWeeklyProgress,
   sendExpiryReminders,
+  sendPersonalizedWorkoutReminders,
+  sendPersonalizedSupplementReminders,
+  sendPersonalizedDietReminders,
+  sendPersonalizedSleepReminders,
 } = require("./cron");
 
 // 6:00 AM — Morning + Day plan
@@ -55,12 +55,16 @@ cron.schedule(
   { timezone: "Asia/Kolkata" },
 );
 
-// 9:00 AM — Supplement reminder
+// Har 15 minute — personalized reminders, sirf un members ko jinhone
+// Settings/Diet page mein apne gym-days/times/meals/supplements set
+// kiye hain (jinhone nahi set kiye, unhe ye nahi jaate)
 cron.schedule(
-  "0 9 * * *",
+  "*/15 * * * *",
   () => {
-    console.log("⏰ 9:00 AM supplement reminder...");
-    sendSupplementReminder();
+    sendPersonalizedWorkoutReminders();
+    sendPersonalizedSupplementReminders();
+    sendPersonalizedDietReminders();
+    sendPersonalizedSleepReminders();
   },
   { timezone: "Asia/Kolkata" },
 );
@@ -87,32 +91,12 @@ cron.schedule(
   { timezone: "Asia/Kolkata" },
 );
 
-// 1:00 PM — Diet/Lunch reminder
-cron.schedule(
-  "0 13 * * *",
-  () => {
-    console.log("⏰ 1:00 PM diet reminder...");
-    sendDietReminder();
-  },
-  { timezone: "Asia/Kolkata" },
-);
-
 // 3:00 PM — Water reminder
 cron.schedule(
   "0 15 * * *",
   () => {
     console.log("⏰ 3:00 PM water reminder...");
     sendWaterReminder("Afternoon hydration check! 💧 Paani piyo");
-  },
-  { timezone: "Asia/Kolkata" },
-);
-
-// 5:00 PM — Evening workout reminder
-cron.schedule(
-  "0 17 * * *",
-  () => {
-    console.log("⏰ 5:00 PM workout reminder...");
-    sendEveningWorkout();
   },
   { timezone: "Asia/Kolkata" },
 );
@@ -133,16 +117,6 @@ cron.schedule(
   () => {
     console.log("⏰ 7:30 PM streak reminder...");
     sendStreakReminder();
-  },
-  { timezone: "Asia/Kolkata" },
-);
-
-// 7:45 PM — Pre-sleep summary
-cron.schedule(
-  "45 19 * * *",
-  () => {
-    console.log("⏰ 7:45 PM daily summary...");
-    sendPreSleepReminder();
   },
   { timezone: "Asia/Kolkata" },
 );

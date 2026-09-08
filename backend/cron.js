@@ -28,6 +28,26 @@ const muscleGroups = {
   Sunday: "Rest Day 😴",
 };
 
+// ── Helper — IST din/time nikalo (server chahe kisi bhi timezone mein
+// chale — Render pe usually UTC — ye hamesha sahi IST value degi) ──
+const getISTDay = () =>
+  new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    weekday: "long",
+  }).format(new Date());
+
+const getISTTime = () => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const hh = parts.find((p) => p.type === "hour").value;
+  const mm = parts.find((p) => p.type === "minute").value;
+  return `${hh}:${mm}`;
+};
+
 // ── Helper — saare tokens fetch karo ────────────────
 const getAllTokens = async () => {
   const { data } = await supabase.from("fcm_tokens").select("token, member_id");
@@ -228,6 +248,184 @@ async function sendExpiryReminders(daysBeforeExpiry) {
   }
 }
 
+// ── 10. Personalized Workout Reminder ───────────────
+// Member ne khud Settings mein jo gym-days aur workoutTime set kiye
+// hain unhi ke hisaab se bhejta hai - jo member ne kuch set nahi kiya,
+// use ye reminder nahi jaata (universal blast se hata diya, kyunki
+// "abhi gym jaao" wala reminder bina routine pata kiye galat/annoying
+// ho sakta hai)
+async function sendPersonalizedWorkoutReminders() {
+  const today = getISTDay();
+  const nowTime = getISTTime();
+  const muscle = muscleGroups[today];
+
+  const { data: members } = await supabase
+    .from("members")
+    .select("id, notification_prefs")
+    .eq("status", "active")
+    .not("notification_prefs", "is", null);
+
+  const due = (members || []).filter(
+    (m) =>
+      m.notification_prefs?.gymDays?.includes(today) &&
+      m.notification_prefs?.workoutTime === nowTime,
+  );
+
+  if (!due.length) return;
+  console.log(`Sending personalized workout reminders to ${due.length} member(s)...`);
+
+  for (const member of due) {
+    const { data: tokenData } = await supabase
+      .from("fcm_tokens")
+      .select("token")
+      .eq("member_id", member.id)
+      .maybeSingle();
+
+    if (!tokenData?.token) continue;
+
+    const result = await sendNotification(
+      tokenData.token,
+      "🏋️ Gym Time!",
+      `Aaj ${muscle} — ab gym jaane ka time! 💪`,
+    );
+
+    if (result === "invalid") {
+      await supabase.from("fcm_tokens").delete().eq("token", tokenData.token);
+    }
+  }
+}
+
+// ── 11. Personalized Supplement Reminder ────────────
+// Sirf un members ko jinhone Settings mein "takesSupplements" ON kiya
+// hai, unke set kiye time pe
+async function sendPersonalizedSupplementReminders() {
+  const nowTime = getISTTime();
+
+  const { data: members } = await supabase
+    .from("members")
+    .select("id, notification_prefs")
+    .eq("status", "active")
+    .not("notification_prefs", "is", null);
+
+  const due = (members || []).filter(
+    (m) =>
+      m.notification_prefs?.takesSupplements &&
+      m.notification_prefs?.supplementTime === nowTime,
+  );
+
+  if (!due.length) return;
+  console.log(`Sending personalized supplement reminders to ${due.length} member(s)...`);
+
+  for (const member of due) {
+    const { data: tokenData } = await supabase
+      .from("fcm_tokens")
+      .select("token")
+      .eq("member_id", member.id)
+      .maybeSingle();
+
+    if (!tokenData?.token) continue;
+
+    const result = await sendNotification(
+      tokenData.token,
+      "💊 Supplement Time!",
+      "Aaj ke supplements liye? Creatine, Whey, Multivitamin ✅",
+    );
+
+    if (result === "invalid") {
+      await supabase.from("fcm_tokens").delete().eq("token", tokenData.token);
+    }
+  }
+}
+
+// ── 12. Personalized Diet/Meal Reminders ────────────
+// Diet.jsx se member khud custom_diet mein meals add karta hai, har
+// meal ka apna time hota hai (HH:MM, ya "Anytime" agar time set nahi
+// kiya - wo kabhi match nahi karega, matlab reminder nahi jaayegi).
+// Jis meal ka time abhi ke IST slot se match kare, uske naam +
+// food items ke sath naam-se-personalized reminder bhejo
+async function sendPersonalizedDietReminders() {
+  const nowTime = getISTTime();
+
+  const { data: members } = await supabase
+    .from("members")
+    .select("id, name, custom_diet")
+    .eq("status", "active")
+    .not("custom_diet", "is", null);
+
+  for (const member of members || []) {
+    const meals = Array.isArray(member.custom_diet) ? member.custom_diet : [];
+    const dueMeals = meals.filter((m) => m.time === nowTime);
+    if (!dueMeals.length) continue;
+
+    const { data: tokenData } = await supabase
+      .from("fcm_tokens")
+      .select("token")
+      .eq("member_id", member.id)
+      .maybeSingle();
+
+    if (!tokenData?.token) continue;
+
+    for (const meal of dueMeals) {
+      const itemsList = Array.isArray(meal.items) ? meal.items.join(", ") : "";
+      console.log(`Sending diet reminder to ${member.name} for ${meal.name}...`);
+
+      const result = await sendNotification(
+        tokenData.token,
+        `🍽️ ${member.name}, ${meal.name} Time!`,
+        itemsList
+          ? `Aaj ka menu: ${itemsList}`
+          : "Apna meal time ho gaya — plan check karo!",
+      );
+
+      if (result === "invalid") {
+        await supabase.from("fcm_tokens").delete().eq("token", tokenData.token);
+        break; // token hi invalid hai to baaki meals ke liye try karna bekar hai
+      }
+    }
+  }
+}
+
+// ── 13. Personalized Sleep Reminder ─────────────────
+// Workout time ki tarah ye bhi ek "set once, fixed" time hai (roz badalta
+// nahi) - member Settings mein set kare to usi waqt daily summary jaati
+// hai, universal 7:45 PM blast ki jagah
+async function sendPersonalizedSleepReminders() {
+  const nowTime = getISTTime();
+
+  const { data: members } = await supabase
+    .from("members")
+    .select("id, name, notification_prefs")
+    .eq("status", "active")
+    .not("notification_prefs", "is", null);
+
+  const due = (members || []).filter(
+    (m) => m.notification_prefs?.sleepTime === nowTime,
+  );
+
+  if (!due.length) return;
+  console.log(`Sending personalized sleep reminders to ${due.length} member(s)...`);
+
+  for (const member of due) {
+    const { data: tokenData } = await supabase
+      .from("fcm_tokens")
+      .select("token")
+      .eq("member_id", member.id)
+      .maybeSingle();
+
+    if (!tokenData?.token) continue;
+
+    const result = await sendNotification(
+      tokenData.token,
+      `🌙 ${member.name}, Good Night!`,
+      "Workout ✅ Paani ✅ Diet ✅ — Kal bhi aana! 💪",
+    );
+
+    if (result === "invalid") {
+      await supabase.from("fcm_tokens").delete().eq("token", tokenData.token);
+    }
+  }
+}
+
 module.exports = {
   sendMorningNotifications,
   sendSupplementReminder,
@@ -238,4 +436,8 @@ module.exports = {
   sendPreSleepReminder,
   sendWeeklyProgress,
   sendExpiryReminders,
+  sendPersonalizedWorkoutReminders,
+  sendPersonalizedSupplementReminders,
+  sendPersonalizedDietReminders,
+  sendPersonalizedSleepReminders,
 };
