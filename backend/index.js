@@ -5,7 +5,11 @@ const cron = require("node-cron");
 
 const app = express();
 
-const allowedOrigins = ["http://localhost:5173", "https://abfitness-beryl.vercel.app"];
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://abfitness-beryl.vercel.app',
+  'https://abfitness.devplex.in',  // ← Add karo
+]
 const vercelPreviewPattern = /^https:\/\/abfitness-[\w-]+\.vercel\.app$/;
 
 app.use(
