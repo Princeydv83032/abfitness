@@ -8,7 +8,9 @@ import {
   useLocation,
 } from "react-router-dom";
 import useAuthStore from "./store/authStore";
+import { supabase } from "./lib/supabase";
 import { ToastContainer } from "react-toastify";
+import { toast } from "./lib/toast";
 import "react-toastify/dist/ReactToastify.css";
 
 // Member Pages
@@ -95,7 +97,37 @@ function BackButtonHandler() {
 
 // ── Route Guards ────────────────────────────────────────
 function MemberRoute({ children }) {
-  const { isLoggedIn, role, user } = useAuthStore();
+  const { isLoggedIn, role, user, logout } = useAuthStore();
+  const navigate = useNavigate();
+
+  // Owner ne member ko delete kar diya ho (DB se seedha, ya Reject se) to
+  // us member ki app kabhi bata nahi paati - wo Home/Payments/etc. pe kaam
+  // karta reh sakta hai jab tak khud logout na kare. Har member route pe
+  // periodically check karo ki row abhi bhi exist karti hai
+  useEffect(() => {
+    if (!isLoggedIn || role !== "member" || !user?.id) return;
+
+    const checkStillExists = async () => {
+      const { data, error } = await supabase
+        .from("members")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      // error sirf network/query issue ke liye hota hai - us case mein
+      // logout nahi karna, sirf genuinely 0 rows milne pe hi karna hai
+      if (!data && !error) {
+        toast.error("Your membership account was removed by the gym owner.");
+        logout();
+        navigate("/login", { replace: true });
+      }
+    };
+
+    checkStillExists();
+    const interval = setInterval(checkStillExists, 30000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn, role, user?.id]);
+
   if (!isLoggedIn) return <Navigate to="/login" replace />;
   if (role !== "member") return <Navigate to="/owner/dashboard" replace />;
   if (user?.status === "pending") return <Navigate to="/pending" replace />;
