@@ -211,11 +211,11 @@ const sendNotification = async (token, title, body) => {
         notification: {
           title,
           body,
-          icon: "https://abfitness-beryl.vercel.app/icon-192.png",
-          badge: "https://abfitness-beryl.vercel.app/notification-icon.png",
+          icon: "https://abfitness.devplex.in/icon-192.png",
+          badge: "https://abfitness.devplex.in/notification-icon.png",
         },
         fcmOptions: {
-          link: "https://abfitness-beryl.vercel.app",
+          link: "https://abfitness.devplex.in",
         },
       },
     });
