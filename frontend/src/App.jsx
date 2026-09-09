@@ -8,7 +8,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import useAuthStore from "./store/authStore";
-import { supabase } from "./lib/supabase";
+import { apiFetch } from "./lib/api";
 import { ToastContainer } from "react-toastify";
 import { toast } from "./lib/toast";
 import "react-toastify/dist/ReactToastify.css";
@@ -108,18 +108,17 @@ function MemberRoute({ children }) {
     if (!isLoggedIn || role !== "member" || !user?.id) return;
 
     const checkStillExists = async () => {
-      const { data, error } = await supabase
-        .from("members")
-        .select("id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      // error sirf network/query issue ke liye hota hai - us case mein
-      // logout nahi karna, sirf genuinely 0 rows milne pe hi karna hai
-      if (!data && !error) {
-        toast.error("Your membership account was removed by the gym owner.");
-        logout();
-        navigate("/login", { replace: true });
+      try {
+        const res = await apiFetch("/api/members/me");
+        // Network/token issues yahan bhi aa sakti hain - sirf specific
+        // "row genuinely nahi mili" wale case mein hi logout karna hai
+        if (!res.success && res.message === "No member account found for this login") {
+          toast.error("Your membership account was removed by the gym owner.");
+          logout();
+          navigate("/login", { replace: true });
+        }
+      } catch (err) {
+        console.log("checkStillExists error:", err);
       }
     };
 

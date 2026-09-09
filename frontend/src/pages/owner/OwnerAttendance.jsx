@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { apiFetch } from '../../lib/api'
 
 function OwnerAttendance() {
   const [attendance, setAttendance] = useState([])
@@ -12,10 +13,6 @@ function OwnerAttendance() {
     day: '2-digit', month: 'short', year: 'numeric'
   })
 
-  useEffect(() => {
-    fetchAttendance()
-  }, [])
-
   const fetchAttendance = async () => {
     setLoading(true)
 
@@ -27,10 +24,8 @@ function OwnerAttendance() {
       .order('checked_in_at', { ascending: false })
 
     // Total active members
-    const { count: totalMembers } = await supabase
-      .from('members')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active')
+    const statsRes = await apiFetch('/api/members/stats')
+    const totalMembers = statsRes.success ? statsRes.active : 0
 
     if (!error) {
       setAttendance(data)
@@ -43,16 +38,17 @@ function OwnerAttendance() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    queueMicrotask(fetchAttendance)
+  }, [])
+
   const handleManualCheckIn = async () => {
     const phone = prompt('Enter member phone number:')
     if (!phone) return
 
     // Member dhundho
-    const { data: member } = await supabase
-      .from('members')
-      .select('id, name')
-      .eq('phone', phone)
-      .single()
+    const lookupRes = await apiFetch(`/api/members/lookup-by-phone?phone=${phone}`)
+    const member = lookupRes.success ? lookupRes.member : null
 
     if (!member) {
       alert('Member not found!')

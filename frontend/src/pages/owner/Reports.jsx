@@ -13,24 +13,12 @@ function Reports() {
     const monthStart = `${month}-01`
     const monthEnd   = `${month}-31`
 
-    // Total active members
-    const { count: activeMembers } = await supabase
-      .from('members')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active')
-
-    // New members this month
-    const { count: newMembers } = await supabase
-      .from('members')
-      .select('*', { count: 'exact', head: true })
-      .gte('joined_at', monthStart)
-      .lte('joined_at', monthEnd)
-
-    // Expired members
-    const { count: expiredMembers } = await supabase
-      .from('members')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'expired')
+    // Active/new-this-month/expired counts — members table RLS-locked
+    // hai, owner-verified backend route se, ek hi call mein teeno
+    const memberStatsRes = await apiFetch(`/api/members/stats?month=${month}`)
+    const activeMembers = memberStatsRes.success ? memberStatsRes.active : 0
+    const newMembers = memberStatsRes.success ? memberStatsRes.newThisMonth : 0
+    const expiredMembers = memberStatsRes.success ? memberStatsRes.expired : 0
 
     // Monthly payments — payments table RLS-locked hai, owner-verified
     // backend route se

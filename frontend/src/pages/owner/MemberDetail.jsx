@@ -15,11 +15,8 @@ function MemberDetail() {
     setLoading(true);
     const month = new Date().toISOString().slice(0, 7);
 
-    const { data: memberData } = await supabase
-      .from("members")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const memberRes = await apiFetch(`/api/members/${id}`);
+    const memberData = memberRes.success ? memberRes.member : null;
 
     // payments table RLS-locked hai - owner-verified backend route se
     const paymentsRes = await apiFetch(`/api/payment/member/${id}`);
@@ -43,8 +40,8 @@ function MemberDetail() {
 
   const handleDelete = async () => {
     if (!confirm(`Delete ${member?.name}? This cannot be undone.`)) return;
-    const { error } = await supabase.from("members").delete().eq("id", id);
-    if (!error) {
+    const res = await apiFetch(`/api/members/${id}`, { method: "DELETE" });
+    if (res.success) {
       alert("Member deleted!");
       navigate("/owner/members");
     }

@@ -18,6 +18,28 @@ const getToken = (req) => {
   return header.startsWith("Bearer ") ? header.slice(7) : null;
 };
 
+// ── Registration/pre-account requests ke liye — sirf token verify karta
+// hai, koi members row match nahi karta (registration ke waqt abhi row
+// exist hi nahi karti, isliye verifyMember use nahi kar sakte). Token se
+// verified uid/email/phone req.firebaseUser pe milega
+async function verifyFirebaseToken(req, res, next) {
+  try {
+    const token = getToken(req);
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Missing auth token" });
+    }
+
+    const { getAuth } = require("firebase-admin/auth");
+    const decoded = await getAuth().verifyIdToken(token);
+
+    req.firebaseUser = decoded;
+    next();
+  } catch (err) {
+    console.log("verifyFirebaseToken error:", err.message);
+    res.status(401).json({ success: false, message: "Invalid or expired session" });
+  }
+}
+
 // ── Member requests ke liye — token ke uid ko members.google_id se
 // match karta hai, matching row ko req.member pe attach kar deta hai
 async function verifyMember(req, res, next) {
@@ -84,4 +106,4 @@ async function verifyOwner(req, res, next) {
   }
 }
 
-module.exports = { verifyMember, verifyOwner };
+module.exports = { verifyFirebaseToken, verifyMember, verifyOwner };

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 // import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth, googleProvider } from "../../lib/firebase";
 import { signInWithPopup } from "firebase/auth";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 function Login() {
@@ -18,47 +18,27 @@ function Login() {
   const navigate = useNavigate();
   const setMember = useAuthStore((state) => state.setMember);
 
-  // ── Find an existing member by Google uid (preferred) or email ──────
-  // .limit(1) instead of .maybeSingle() — .maybeSingle() throws if more
-  // than one row matches, which silently looked like "not found" and
-  // caused a fresh duplicate member to be created on every login.
-  const findMemberByGoogle = async (googleUser) => {
-    const { data } = await supabase
-      .from("members")
-      .select("*")
-      .or(`google_id.eq.${googleUser.uid},email.eq.${googleUser.email}`)
-      .order("created_at", { ascending: true })
-      .limit(1);
-    return data?.[0] || null;
-  };
-
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const googleUser = result.user;
+      await signInWithPopup(auth, googleProvider);
 
-      const member = await findMemberByGoogle(googleUser);
+      // members table RLS-locked hai - backend Firebase token verify
+      // karke apna hi account dhoondta hai (google_id ka backfill bhi
+      // wahi karta hai agar member pehle phone/OTP se join kiya tha)
+      const res = await apiFetch("/api/members/lookup");
 
-      if (!member) {
+      if (!res.success || !res.member) {
         setError(
           "No account found with this Google account. Please register first.",
         );
         return;
       }
 
-      // Keep google_id in sync (covers members who first joined via phone/OTP)
-      if (!member.google_id) {
-        await supabase
-          .from("members")
-          .update({ google_id: googleUser.uid })
-          .eq("id", member.id);
-      }
-
-      setMember(member);
-      navigate(member.status === "pending" ? "/pending" : "/home");
+      setMember(res.member);
+      navigate(res.member.status === "pending" ? "/pending" : "/home");
     } catch (err) {
       console.log("Google login error:", err);
       setError("Google login failed. Please try again.");

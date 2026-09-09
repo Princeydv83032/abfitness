@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
 import { initNotifications } from "../../lib/notifications";
@@ -73,11 +74,8 @@ function Home() {
     const month = new Date().toISOString().slice(0, 7);
     const todayDate = new Date().toISOString().split("T")[0];
 
-    const { data: member } = await supabase
-      .from("members")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    const memberRes = await apiFetch("/api/members/me");
+    const member = memberRes.success ? memberRes.member : null;
 
     const { count: attendance } = await supabase
       .from("attendance")

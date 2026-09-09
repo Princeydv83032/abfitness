@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { toast } from "../../lib/toast";
 import { FiEdit2, FiX, FiCamera, FiSave, FiLogOut } from "react-icons/fi";
@@ -59,11 +59,8 @@ function Profile() {
 
   const fetchMember = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("members")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    const res = await apiFetch("/api/members/me");
+    const data = res.success ? res.member : null;
 
     if (data) {
       setMemberData(data);
@@ -93,9 +90,9 @@ function Profile() {
 
   const handleSavePrefs = async () => {
     setSavingPrefs(true);
-    const { error } = await supabase
-      .from("members")
-      .update({
+    const res = await apiFetch("/api/members/me", {
+      method: "PATCH",
+      body: JSON.stringify({
         notification_prefs: {
           gymDays,
           workoutTime,
@@ -103,11 +100,11 @@ function Profile() {
           takesSupplements,
           supplementTime,
         },
-      })
-      .eq("id", user.id);
+      }),
+    });
 
     setSavingPrefs(false);
-    if (error) {
+    if (!res.success) {
       toast.error("Failed to save preferences");
     } else {
       toast.success("Notification preferences saved!");
@@ -145,20 +142,14 @@ function Profile() {
   const handleSave = async () => {
     setSaving(true);
 
-    const { data, error } = await supabase
-      .from("members")
-      .update({
-        name: name,
-        goal: goal,
-        profile_photo: photo,
-      })
-      .eq("id", user.id)
-      .select()
-      .single();
+    const res = await apiFetch("/api/members/me", {
+      method: "PATCH",
+      body: JSON.stringify({ name, goal, profile_photo: photo }),
+    });
 
-    if (!error && data) {
-      setMemberData(data);
-      setMember(data); // Zustand update karo
+    if (res.success) {
+      setMemberData(res.member);
+      setMember(res.member); // Zustand update karo
       setEditing(false);
       toast.success("Profile updated!");
     }
