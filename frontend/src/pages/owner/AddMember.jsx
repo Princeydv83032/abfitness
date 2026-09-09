@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { apiFetch } from '../../lib/api'
 import { usePrices } from '../../hooks/usePrices'
 
 function AddMember() {
@@ -27,46 +27,29 @@ function AddMember() {
     return date.toISOString().split('T')[0]
   }
 
-  const getMemberId = async () => {
-    const { count } = await supabase
-      .from('members')
-      .select('*', { count: 'exact', head: true })
-    return `GYM-${String((count || 0) + 1).padStart(4, '0')}`
-  }
-
   const handleSubmit = async () => {
     if (!form.name || form.phone.length !== 10) return
     setLoading(true)
 
     try {
-      const memberId  = await getMemberId()
-      const expiresAt = getExpiry(form.joinDate, form.plan)
-
-      const { data: member, error: memberError } = await supabase
-        .from('members')
-        .insert({
-          member_id:  memberId,
-          name:       form.name,
-          phone:      form.phone,
-          plan:       form.plan,
-          joined_at:  form.joinDate,
-          expires_at: expiresAt,
-          status:     'active',
-        })
-        .select()
-        .single()
-
-      if (memberError) throw memberError
-
-      await supabase.from('payments').insert({
-        member_id: member.id,
-        amount:    planPrices[form.plan],
-        method:    form.paymentMethod,
-        upi_ref:   form.upiRef || null,
-        plan:      form.plan,
+      // members + payments dono RLS-locked hain - owner-verified backend
+      // route hi member add karta hai aur amount khud owner ke set kiye
+      // fees se nikalta hai (client se amount trust nahi karte)
+      const res = await apiFetch('/api/payment/add-member', {
+        method: 'POST',
+        body: JSON.stringify({
+          name:          form.name,
+          phone:         form.phone,
+          plan:          form.plan,
+          paymentMethod: form.paymentMethod,
+          upiRef:        form.upiRef,
+          joinDate:      form.joinDate,
+        }),
       })
 
-      alert(`✅ ${form.name} added! ID: ${memberId}`)
+      if (!res.success) throw new Error(res.message || res.error || 'Failed to add member')
+
+      alert(`✅ ${form.name} added! ID: ${res.member.member_id}`)
       navigate('/owner/members')
 
     } catch (error) {

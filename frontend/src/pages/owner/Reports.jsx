@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { apiFetch } from '../../lib/api'
 
 function Reports() {
   const [stats,    setStats]    = useState(null)
   const [loading,  setLoading]  = useState(true)
   const [month,    setMonth]    = useState(new Date().toISOString().slice(0, 7))
-
-  useEffect(() => {
-    fetchReports()
-  }, [month])
 
   const fetchReports = async () => {
     setLoading(true)
@@ -35,12 +32,12 @@ function Reports() {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'expired')
 
-    // Monthly payments
-    const { data: paymentsData } = await supabase
-      .from('payments')
-      .select('amount, method, paid_at')
-      .gte('paid_at', monthStart)
-      .lte('paid_at', monthEnd)
+    // Monthly payments — payments table RLS-locked hai, owner-verified
+    // backend route se
+    const paymentsRes = await apiFetch(
+      `/api/payment/all?from=${monthStart}&to=${monthEnd}`,
+    )
+    const paymentsData = paymentsRes.success ? paymentsRes.payments : []
 
     const revenue = paymentsData?.reduce((s, p) => s + p.amount, 0) || 0
     const cash    = paymentsData?.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amount, 0) || 0
@@ -76,6 +73,10 @@ function Reports() {
 
     setLoading(false)
   }
+
+  useEffect(() => {
+    queueMicrotask(fetchReports)
+  }, [month])
 
   if (loading) {
     return (

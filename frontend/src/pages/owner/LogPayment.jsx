@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import { usePrices } from "../../hooks/usePrices";
 
 function LogPayment() {
@@ -14,17 +14,15 @@ function LogPayment() {
   const [upiRef, setUpiRef] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchMembers();
-  }, []);
-
   const fetchMembers = async () => {
-    const { data } = await supabase
-      .from("members")
-      .select("id, name, member_id, plan, expires_at, email") // ← email add karo
-      .order("name");
-    if (data) setMembers(data);
+    // members table RLS-locked hai, owner-verified backend route se
+    const res = await apiFetch("/api/payment/members-for-logging");
+    if (res.success) setMembers(res.members);
   };
+
+  useEffect(() => {
+    queueMicrotask(fetchMembers);
+  }, []);
 
   const filtered = members.filter(
     (m) =>
@@ -55,60 +53,20 @@ function LogPayment() {
     try {
       const newExpiry = getNewExpiry();
 
-      // Payment save karo + ID lo
-      const { data: paymentData, error: paymentError } = await supabase
-        .from("payments")
-        .insert({
-          member_id: selectedMember.id,
-          amount: planPrices[plan],
-          method: method,
-          upi_ref: upiRef || null,
-          plan: plan,
-          paid_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      // payments + members dono RLS-locked hain - owner-verified backend
+      // route hi insert/update karta hai (amount khud owner ke set kiye
+      // fees se nikalta hai), aur invoice email bhi wahi bhej deta hai
+      const res = await apiFetch("/api/payment/log", {
+        method: "POST",
+        body: JSON.stringify({
+          memberId: selectedMember.id,
+          plan,
+          method,
+          upiRef,
+        }),
+      });
 
-      if (paymentError) throw paymentError;
-
-      // Member expiry update karo
-      const { error: memberError } = await supabase
-        .from("members")
-        .update({
-          expires_at: newExpiry.isoDate,
-          plan: plan,
-          status: "active",
-        })
-        .eq("id", selectedMember.id);
-
-      if (memberError) throw memberError;
-
-      // Email bhejo — background mein
-      console.log("Selected member email:", selectedMember.email);
-      console.log("Payment data:", paymentData);
-      if (selectedMember.email && paymentData?.id) {
-        try {
-          await fetch(
-            `${import.meta.env.VITE_API_URL}/api/notifications/send-invoice`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                memberId: selectedMember.id,
-                paymentId: paymentData.id,
-              }),
-            },
-          );
-          console.log("Sending invoice email...");
-          console.log("Member:", selectedMember.id);
-          console.log("Payment:", paymentData?.id);
-          console.log("API URL:", import.meta.env.VITE_API_URL);
-          console.log("Invoice email sent ✅");
-        } catch (err) {
-          console.log("Email error:", err);
-          // Email fail hone pe payment block nahi hona chahiye
-        }
-      }
+      if (!res.success) throw new Error(res.message || res.error || "Failed to log payment");
 
       alert(`✅ Payment logged!\nNew expiry: ${newExpiry.formatted}`);
       navigate("/owner/payments");

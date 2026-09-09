@@ -3,6 +3,7 @@ const Razorpay  = require('razorpay')
 const crypto    = require('crypto')
 const { createClient } = require('@supabase/supabase-js')
 const { sendInvoiceEmail } = require('../utils/email')
+const { verifyMember, verifyOwner } = require('../middleware/auth')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -27,8 +28,11 @@ const getFees = async () => {
 }
 
 // ── Create Order ─────────────────────────────────────
-router.post('/create-order', async (req, res) => {
-  const { memberId, plan } = req.body
+// memberId client se nahi, verified token se - warna koi bhi kisi aur
+// member ke liye order bana sakta tha
+router.post('/create-order', verifyMember, async (req, res) => {
+  const { plan } = req.body
+  const memberId = req.member.id
 
   if (!PLAN_DAYS[plan]) {
     return res.status(400).json({ success: false, message: 'Invalid plan' })
@@ -169,6 +173,166 @@ router.post('/verify', async (req, res) => {
     console.log('Verify error:', err)
     res.status(500).json({ success: false, error: err.message })
   }
+})
+
+// ── Member: apna payment history ──────────────────────
+router.get('/my-history', verifyMember, async (req, res) => {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('member_id', req.member.id)
+    .order('paid_at', { ascending: false })
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true, payments: data })
+})
+
+// ── Owner: sabka payment history (optional ?from=&to= date filter) ───
+router.get('/all', verifyOwner, async (req, res) => {
+  const { from, to } = req.query
+  let query = supabase
+    .from('payments')
+    .select('*, members(name, member_id)')
+    .order('paid_at', { ascending: false })
+
+  if (from) query = query.gte('paid_at', from)
+  if (to) query = query.lte('paid_at', to)
+
+  const { data, error } = await query
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true, payments: data })
+})
+
+// ── Owner: ek specific member ka payment history ──────
+router.get('/member/:memberId', verifyOwner, async (req, res) => {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('member_id', req.params.memberId)
+    .order('paid_at', { ascending: false })
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true, payments: data })
+})
+
+// ── Owner: naya member add karo (+ initial payment) ───────────────────
+router.post('/add-member', verifyOwner, async (req, res) => {
+  const { name, phone, plan, paymentMethod, upiRef, joinDate } = req.body
+
+  if (!name || !phone || phone.length !== 10) {
+    return res.status(400).json({ success: false, message: 'Invalid name/phone' })
+  }
+  if (!PLAN_DAYS[plan]) {
+    return res.status(400).json({ success: false, message: 'Invalid plan' })
+  }
+
+  try {
+    const { count } = await supabase
+      .from('members')
+      .select('*', { count: 'exact', head: true })
+    const memberId = `GYM-${String((count || 0) + 1).padStart(4, '0')}`
+
+    const expiryDate = new Date(joinDate || new Date())
+    expiryDate.setDate(expiryDate.getDate() + PLAN_DAYS[plan])
+    const expiresAt = expiryDate.toISOString().split('T')[0]
+
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .insert({
+        member_id:  memberId,
+        name,
+        phone,
+        plan,
+        joined_at:  joinDate || new Date().toISOString().split('T')[0],
+        expires_at: expiresAt,
+        status:     'active',
+      })
+      .select()
+      .single()
+
+    if (memberError) throw memberError
+
+    const fees = await getFees()
+
+    await supabase.from('payments').insert({
+      member_id: member.id,
+      amount:    fees[plan],
+      method:    paymentMethod || 'cash',
+      upi_ref:   upiRef || null,
+      plan,
+    })
+
+    res.json({ success: true, member })
+  } catch (err) {
+    console.log('Add member error:', err)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+// ── Owner: existing member ke liye manual payment log karo ────────────
+router.post('/log', verifyOwner, async (req, res) => {
+  const { memberId, plan, method, upiRef } = req.body
+
+  if (!memberId || !PLAN_DAYS[plan]) {
+    return res.status(400).json({ success: false, message: 'Invalid member/plan' })
+  }
+
+  try {
+    const fees = await getFees()
+
+    const expiryDate = new Date()
+    expiryDate.setDate(expiryDate.getDate() + PLAN_DAYS[plan])
+    const expiresAt = expiryDate.toISOString().split('T')[0]
+
+    const { data: payment, error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        member_id: memberId,
+        amount:    fees[plan],
+        method:    method || 'cash',
+        upi_ref:   upiRef || null,
+        plan,
+        paid_at:   new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (paymentError) throw paymentError
+
+    const { error: memberError } = await supabase
+      .from('members')
+      .update({ expires_at: expiresAt, plan, status: 'active' })
+      .eq('id', memberId)
+
+    if (memberError) throw memberError
+
+    const { data: member } = await supabase
+      .from('members')
+      .select('*')
+      .eq('id', memberId)
+      .single()
+
+    if (member?.email) {
+      sendInvoiceEmail({ member, payment, gymName: req.owner.gym_name })
+        .catch((err) => console.log('Invoice email error:', err.message))
+    }
+
+    res.json({ success: true, payment, expiresAt })
+  } catch (err) {
+    console.log('Log payment error:', err)
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+// ── Owner: member picker list (LogPayment page ke liye) ───────────────
+router.get('/members-for-logging', verifyOwner, async (req, res) => {
+  const { data, error } = await supabase
+    .from('members')
+    .select('id, name, member_id, plan, expires_at, email')
+    .order('name')
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true, members: data })
 })
 
 module.exports = router

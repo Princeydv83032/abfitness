@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { usePrices } from "../../hooks/usePrices";
 
@@ -23,14 +24,13 @@ function Payments() {
       .eq("id", user.id)
       .single();
 
-    const { data: paymentsData } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("member_id", user.id)
-      .order("paid_at", { ascending: false });
+    // payments table RLS-locked hai (koi bhi anon key se sabka payment
+    // history nahi padh sake) - backend Firebase token verify karke
+    // sirf apna history deta hai
+    const paymentsRes = await apiFetch("/api/payment/my-history");
 
     if (memberData) setMember(memberData);
-    if (paymentsData) setPayments(paymentsData);
+    if (paymentsRes.success) setPayments(paymentsRes.payments);
     setLoading(false);
   };
 
@@ -57,16 +57,12 @@ function Payments() {
     setPayingPlan(plan);
     try {
       // Step 1 — Order create karo — amount yahan se nahi bhejte, backend
-      // khud owner ke set kiye fees se calculate karta hai
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/payment/create-order`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ memberId: user.id, plan }),
-        }
-      );
-      const order = await res.json();
+      // khud owner ke set kiye fees se calculate karta hai. memberId bhi
+      // nahi bhejte - backend Firebase token se khud verify karta hai
+      const order = await apiFetch("/api/payment/create-order", {
+        method: "POST",
+        body: JSON.stringify({ plan }),
+      });
 
       if (!order.success) {
         alert("Payment failed. Try again.");

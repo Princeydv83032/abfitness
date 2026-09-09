@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const cron = require("node-cron");
 
 const app = express();
@@ -8,9 +9,13 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'https://abfitness-beryl.vercel.app',
-  'https://abfitness.devplex.in',  // ← Add karo
+  'https://abfitness.devplex.in',
 ]
 const vercelPreviewPattern = /^https:\/\/abfitness-[\w-]+\.vercel\.app$/;
+
+// crossOriginResourcePolicy off — warna cross-origin se load hone wale
+// assets (jaise push notification icon/badge URLs) block ho sakte hain
+app.use(helmet({ crossOriginResourcePolicy: false }));
 
 app.use(
   cors({

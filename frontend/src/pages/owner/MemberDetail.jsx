@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 
 function MemberDetail() {
   const navigate = useNavigate();
@@ -9,10 +10,6 @@ function MemberDetail() {
   const [payments, setPayments] = useState([]);
   const [attendance, setAttendance] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (id) fetchMember();
-  }, [id]);
 
   const fetchMember = async () => {
     setLoading(true);
@@ -24,11 +21,9 @@ function MemberDetail() {
       .eq("id", id)
       .single();
 
-    const { data: paymentsData } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("member_id", id)
-      .order("paid_at", { ascending: false });
+    // payments table RLS-locked hai - owner-verified backend route se
+    const paymentsRes = await apiFetch(`/api/payment/member/${id}`);
+    const paymentsData = paymentsRes.success ? paymentsRes.payments : [];
 
     const { count: attendanceCount } = await supabase
       .from("attendance")
@@ -41,6 +36,10 @@ function MemberDetail() {
     setAttendance(attendanceCount || 0);
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (id) queueMicrotask(fetchMember);
+  }, [id]);
 
   const handleDelete = async () => {
     if (!confirm(`Delete ${member?.name}? This cannot be undone.`)) return;
