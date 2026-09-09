@@ -161,7 +161,6 @@
 // module.exports = { router, sendNotification };
 
 const router = require("express").Router();
-const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
 const supabase = createClient(
@@ -169,35 +168,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY,
 );
 
+const { initFirebaseAdmin } = require("../lib/firebaseAdmin");
+
 let messaging = null;
 
-try {
-  const { cert, initializeApp, getApps } = require("firebase-admin/app");
-  const { getMessaging } = require("firebase-admin/messaging");
-
-  // Always load the full credential as one consistent JSON blob - never
-  // hand-assemble it from separate env vars. private_key_id/client_id
-  // MUST come from the exact same key file as private_key, or Google
-  // rejects the JWT with "invalid_grant: Invalid JWT Signature" (which is
-  // what a previous version of this file did: it hardcoded
-  // private_key_id/client_id from an old key while private_key came from
-  // a newer, different FIREBASE_PRIVATE_KEY env var)
-  let serviceAccount;
-
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-  } else {
-    serviceAccount = require(path.join(__dirname, "../serviceAccount.json"));
+if (initFirebaseAdmin()) {
+  try {
+    messaging = require("firebase-admin/messaging").getMessaging();
+  } catch (err) {
+    console.log("Firebase Messaging init error:", err.message);
   }
-
-  if (getApps().length === 0) {
-    initializeApp({ credential: cert(serviceAccount) });
-  }
-
-  messaging = getMessaging();
-  console.log("Firebase Admin initialized ✅");
-} catch (err) {
-  console.log("Firebase Admin init error:", err.message);
 }
 
 // ── Send Notification ────────────────────────────────
@@ -387,6 +367,13 @@ router.post("/send-welcome", async (req, res) => {
 
     if (!member) {
       return res.status(404).json({ message: "Member not found" });
+    }
+
+    // Defense-in-depth: chahe upstream (owner approve, ya member ka apna
+    // app) kahin se bhi ye call aaye, kabhi bhi "welcome" ek aisay member
+    // ko na jaaye jo abhi tak actually approve hi nahi hua
+    if (member.status !== "active") {
+      return res.json({ success: false, message: "Member is not active yet" });
     }
 
     let pushSent = member.welcome_push_sent || false;

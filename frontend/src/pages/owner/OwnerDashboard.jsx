@@ -260,6 +260,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 function OwnerDashboard() {
@@ -269,10 +270,6 @@ function OwnerDashboard() {
   const [expiring, setExpiring] = useState([]);
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -309,11 +306,12 @@ function OwnerDashboard() {
       .select("*", { count: "exact", head: true })
       .eq("date", today);
 
-    // Monthly payments
-    const { data: paymentsData } = await supabase
-      .from("payments")
-      .select("amount, method")
-      .gte("paid_at", `${month}-01`);
+    // Monthly payments — payments table RLS-locked hai, owner-verified
+    // backend route se
+    const paymentsRes = await apiFetch(
+      `/api/payment/all?from=${month}-01`,
+    );
+    const paymentsData = paymentsRes.success ? paymentsRes.payments : [];
 
     const revenue = paymentsData?.reduce((s, p) => s + p.amount, 0) || 0;
     const cash =
@@ -360,6 +358,10 @@ function OwnerDashboard() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    queueMicrotask(fetchDashboard);
+  }, []);
+
   const handleApprove = async (member) => {
     const today = new Date();
     const expiry = new Date(today);
@@ -368,35 +370,45 @@ function OwnerDashboard() {
     if (member.plan === "quarterly") expiry.setMonth(expiry.getMonth() + 3);
     if (member.plan === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
 
-    const { error } = await supabase
+    // .select().single() zaroori hai - warna agar .eq() ka id kisi wajah
+    // se kisi row se match hi na kare, Supabase phir bhi error: null
+    // deta hai (0 rows update hone par bhi) - is check ke bina "success"
+    // maan kar welcome notification bhej dete the jabki DB mein kuch
+    // update hi nahi hua tha
+    const { data: updated, error } = await supabase
       .from("members")
       .update({
         status: "active",
         joined_at: today.toISOString().split("T")[0],
         expires_at: expiry.toISOString().split("T")[0],
       })
-      .eq("id", member.id);
+      .eq("id", member.id)
+      .select()
+      .single();
 
-    if (!error) {
-      // Welcome push notification + email — non-blocking, approval ko iski
-      // wajah se rokna nahi hai agar ye fail ho jaye
-      try {
-        await fetch(
-          `${import.meta.env.VITE_API_URL}/api/notifications/send-welcome`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ memberId: member.id }),
-          },
-        );
-        console.log("Welcome notification sent ✅");
-      } catch (err) {
-        console.log("Notification error:", err);
-      }
-
-      alert(`✅ ${member.name} approved!`);
-      fetchDashboard();
+    if (error || !updated) {
+      alert("Approve failed: " + (error?.message || "member row not found"));
+      return;
     }
+
+    // Welcome push notification + email — non-blocking, approval ko iski
+    // wajah se rokna nahi hai agar ye fail ho jaye
+    try {
+      await fetch(
+        `${import.meta.env.VITE_API_URL}/api/notifications/send-welcome`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ memberId: member.id }),
+        },
+      );
+      console.log("Welcome notification sent ✅");
+    } catch (err) {
+      console.log("Notification error:", err);
+    }
+
+    alert(`✅ ${member.name} approved!`);
+    fetchDashboard();
   };
 
   const handleReject = async (id) => {

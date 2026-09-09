@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { apiFetch } from '../../lib/api'
 
 function OwnerPayments() {
   const navigate             = useNavigate()
@@ -8,20 +8,17 @@ function OwnerPayments() {
   const [loading,  setLoading]  = useState(true)
   const [filter,   setFilter]   = useState('all')
 
-  useEffect(() => {
-    fetchPayments()
-  }, [])
-
   const fetchPayments = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*, members(name, member_id)')
-      .order('paid_at', { ascending: false })
-
-    if (!error) setPayments(data)
+    // payments table RLS-locked hai, owner-verified backend route se
+    const res = await apiFetch('/api/payment/all')
+    if (res.success) setPayments(res.payments)
     setLoading(false)
   }
+
+  useEffect(() => {
+    queueMicrotask(fetchPayments)
+  }, [])
 
   const filtered = payments.filter((p) =>
     filter === 'all' ? true : p.method === filter
