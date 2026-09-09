@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 function PendingApproval() {
@@ -15,16 +15,12 @@ function PendingApproval() {
     if (!user?.id) return;
     setChecking(true);
 
-    const { data, error } = await supabase
-      .from("members")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
+    const res = await apiFetch("/api/members/me");
 
-    if (data?.status === "active") {
-      setMember(data);
+    if (res.member?.status === "active") {
+      setMember(res.member);
       navigate("/home", { replace: true });
-    } else if (!data && !error) {
+    } else if (!res.success && res.message === "No member account found for this login") {
       // Owner ne request approve karne se pehle hi reject/delete kar di
       logout();
       navigate("/login", { replace: true });
@@ -55,13 +51,10 @@ function PendingApproval() {
 
     setCancelling(true);
     try {
-      // status: "pending" guard — never delete a member the owner may have
-      // just approved (avoids a race with the 30s status poll)
-      await supabase
-        .from("members")
-        .delete()
-        .eq("id", user.id)
-        .eq("status", "pending");
+      // Backend route khud "status: pending" guard karta hai — owner ne
+      // approve kar diya ho to delete nahi hoga (30s poll ke sath race
+      // se bachne ke liye)
+      await apiFetch("/api/members/me", { method: "DELETE" });
     } catch (err) {
       console.log("Cancel request error:", err);
     } finally {

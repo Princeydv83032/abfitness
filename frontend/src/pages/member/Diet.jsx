@@ -672,7 +672,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 const dietPlans = {
@@ -1230,11 +1230,8 @@ function Diet() {
 
   const fetchMember = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("members")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    const res = await apiFetch("/api/members/me");
+    const data = res.success ? res.member : null;
 
     if (data) {
       setMember(data);
@@ -1251,7 +1248,10 @@ function Diet() {
 
   const toggleDiet = async (veg) => {
     setIsVeg(veg);
-    await supabase.from("members").update({ is_veg: veg }).eq("id", user.id);
+    await apiFetch("/api/members/me", {
+      method: "PATCH",
+      body: JSON.stringify({ is_veg: veg }),
+    });
   };
 
   const addCustomMeal = async () => {
@@ -1268,10 +1268,10 @@ function Diet() {
     const updated = [...customMeals, newMeal];
     setCustomMeals(updated);
 
-    await supabase
-      .from("members")
-      .update({ custom_diet: updated })
-      .eq("id", user.id);
+    await apiFetch("/api/members/me", {
+      method: "PATCH",
+      body: JSON.stringify({ custom_diet: updated }),
+    });
 
     setNewMealName("");
     setNewMealItems("");
@@ -1283,10 +1283,10 @@ function Diet() {
   const deleteCustomMeal = async (id) => {
     const updated = customMeals.filter((m) => m.id !== id);
     setCustomMeals(updated);
-    await supabase
-      .from("members")
-      .update({ custom_diet: updated })
-      .eq("id", user.id);
+    await apiFetch("/api/members/me", {
+      method: "PATCH",
+      body: JSON.stringify({ custom_diet: updated }),
+    });
   };
 
   const dietKey = isVeg ? "veg" : "nonveg";

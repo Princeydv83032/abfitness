@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 // import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth, googleProvider } from "../../lib/firebase";
 import { signInWithPopup } from "firebase/auth";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 function Register() {
@@ -30,7 +30,6 @@ function Register() {
   // Google ki photo auto-use nahi karte — member ko khud ek photo upload karni hai,
   // warna wahi Google avatar hamesha Home/Profile/Settings pe dikhta reh jaata
   const [photoUrl, setPhotoUrl] = useState("");
-  const [email, setEmail] = useState(googleUser?.email || "");
 
   const goals = [
     "Build Muscle",
@@ -40,20 +39,6 @@ function Register() {
     "General Fitness",
   ];
 
-  // ── Find an existing member by Google uid (preferred) or email ──────
-  // .limit(1) instead of .maybeSingle() — .maybeSingle() throws if more
-  // than one row matches, which silently looked like "not found" and
-  // caused a fresh duplicate member to be created on every attempt.
-  const findMemberByGoogle = async (gUser) => {
-    const { data } = await supabase
-      .from("members")
-      .select("*")
-      .or(`google_id.eq.${gUser.uid},email.eq.${gUser.email}`)
-      .order("created_at", { ascending: true })
-      .limit(1);
-    return data?.[0] || null;
-  };
-
   const handleGoogleRegister = async () => {
     setLoading(true);
     setError("");
@@ -62,7 +47,10 @@ function Register() {
       const result = await signInWithPopup(auth, googleProvider);
       const gUser = result.user;
 
-      const existing = await findMemberByGoogle(gUser);
+      // members table RLS-locked hai - backend Firebase token verify
+      // karke duplicate-check karta hai
+      const lookupRes = await apiFetch("/api/members/lookup");
+      const existing = lookupRes.success ? lookupRes.member : null;
 
       if (existing) {
         setError(
@@ -80,7 +68,6 @@ function Register() {
 
       setGoogleUser(gData);
       setName(gData.name || "");
-      setEmail(gData.email || "");
       setStep(2);
     } catch (err) {
       console.log("Google register error:", err);
@@ -244,21 +231,6 @@ function Register() {
   };
   ── end OTP block ──────────────────────────────────────────────── */
 
-  const getMemberId = async () => {
-    const { data } = await supabase
-      .from("members")
-      .select("member_id")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (data?.member_id) {
-      const lastNum = parseInt(data.member_id.replace("GYM-", "")) || 0;
-      return `GYM-${String(lastNum + 1).padStart(4, "0")}`;
-    }
-    return "GYM-0001";
-  };
-
   const canSubmit = name && photoUrl && phone.length === 10 && !uploading;
 
   const handleSubmit = async () => {
@@ -266,47 +238,37 @@ function Register() {
     setLoading(true);
 
     try {
-      // Safety re-check — avoid creating a duplicate if this Google
-      // account somehow already has a member row (e.g. registered from
-      // another tab while this form was open)
-      if (googleUser) {
-        const existing = await findMemberByGoogle(googleUser);
-        if (existing) {
-          setMember(existing);
-          navigate(existing.status === "active" ? "/home" : "/pending");
-          setLoading(false);
-          return;
+      // members table RLS-locked hai - backend hi register karta hai:
+      // duplicate-check, member_id generate, aur insert - sab server
+      // side, ek hi call mein. Plan/payment yahan nahi lete — member
+      // "pending" status mein hi banega, real plan Payments page se ya
+      // owner approval ke waqt set hota hai
+      const res = await apiFetch("/api/members/register", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          phone,
+          age: age ? parseInt(age) : null,
+          goal,
+          profilePhoto: photoUrl,
+        }),
+      });
+
+      if (!res.success) {
+        // Already registered ho chuka (dusre tab se, ya retry) - us
+        // account pe hi le jao
+        if (res.message === "This account is already registered") {
+          const lookupRes = await apiFetch("/api/members/lookup");
+          if (lookupRes.member) {
+            setMember(lookupRes.member);
+            navigate(lookupRes.member.status === "active" ? "/home" : "/pending");
+            return;
+          }
         }
+        throw new Error(res.message || res.error || "Registration failed");
       }
 
-      const memberId = await getMemberId();
-
-      // Plan/payment select register ke waqt nahi lete — member "pending"
-      // status mein hi banega, real plan Payments page se ya owner
-      // approval ke waqt set hota hai
-      const { data: member, error } = await supabase
-        .from("members")
-        .insert({
-          member_id: memberId,
-          name: name,
-          phone: phone || null,
-          email: email || null,
-          google_id: googleUser?.uid || null,
-          age: age ? parseInt(age) : null,
-          plan: "monthly",
-          joined_at: new Date().toISOString().split("T")[0],
-          expires_at: new Date().toISOString().split("T")[0],
-          status: "pending",
-          self_registered: true,
-          profile_photo: photoUrl,
-          goal: goal,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setMember(member);
+      setMember(res.member);
       navigate("/pending");
     } catch (err) {
       console.log("Submit error:", err);

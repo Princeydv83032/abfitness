@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 
 const statusConfig = {
   active: { label: "Active", color: "bg-green-500/20 text-green-400" },
@@ -17,20 +17,16 @@ function MembersList() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  useEffect(() => {
-    fetchMembers();
-  }, []);
-
   const fetchMembers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("members")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error) setMembers(data);
+    const res = await apiFetch("/api/members/list");
+    if (res.success) setMembers(res.members);
     setLoading(false);
   };
+
+  useEffect(() => {
+    queueMicrotask(fetchMembers);
+  }, []);
 
   const filtered = members.filter((m) => {
     const matchSearch =

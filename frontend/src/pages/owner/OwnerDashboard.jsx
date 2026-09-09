@@ -275,30 +275,16 @@ function OwnerDashboard() {
     setLoading(true);
 
     const today = new Date().toISOString().split("T")[0];
-    const in7days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
     const month = new Date().toISOString().slice(0, 7);
 
-    // Active members
-    const { count: activeCount } = await supabase
-      .from("members")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "active");
+    // Active + new-this-month counts, expiring list, pending list —
+    // members table RLS-locked hai, owner-verified backend routes se
+    const memberStatsRes = await apiFetch(`/api/members/stats?month=${month}`);
+    const activeCount = memberStatsRes.success ? memberStatsRes.active : 0;
+    const newCount = memberStatsRes.success ? memberStatsRes.newThisMonth : 0;
 
-    // Expiring in 7 days
-    const { data: expiringData } = await supabase
-      .from("members")
-      .select("*")
-      .gte("expires_at", today)
-      .lte("expires_at", in7days)
-      .eq("status", "active");
-
-    // New members this month
-    const { count: newCount } = await supabase
-      .from("members")
-      .select("*", { count: "exact", head: true })
-      .gte("joined_at", `${month}-01`);
+    const expiringRes = await apiFetch("/api/members/expiring?days=7");
+    const expiringData = expiringRes.success ? expiringRes.members : [];
 
     // Today check-ins
     const { count: todayCI } = await supabase
@@ -324,11 +310,8 @@ function OwnerDashboard() {
         .reduce((s, p) => s + p.amount, 0) || 0;
 
     // Pending members
-    const { data: pendingData } = await supabase
-      .from("members")
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
+    const pendingRes = await apiFetch("/api/members/pending");
+    const pendingData = pendingRes.success ? pendingRes.members : [];
 
     setStats({
       activeMembers: activeCount || 0,
@@ -363,31 +346,16 @@ function OwnerDashboard() {
   }, []);
 
   const handleApprove = async (member) => {
-    const today = new Date();
-    const expiry = new Date(today);
+    // members table RLS-locked hai - backend hi status active karta hai
+    // + expiry plan ke hisaab se calculate karta hai. Isme "row actually
+    // update hui ya nahi" wala check bhi built-in hai (pehle ek bug tha
+    // jahan 0-row update bhi "success" maan liya jaata tha)
+    const res = await apiFetch(`/api/members/${member.id}/approve`, {
+      method: "POST",
+    });
 
-    if (member.plan === "monthly") expiry.setMonth(expiry.getMonth() + 1);
-    if (member.plan === "quarterly") expiry.setMonth(expiry.getMonth() + 3);
-    if (member.plan === "yearly") expiry.setFullYear(expiry.getFullYear() + 1);
-
-    // .select().single() zaroori hai - warna agar .eq() ka id kisi wajah
-    // se kisi row se match hi na kare, Supabase phir bhi error: null
-    // deta hai (0 rows update hone par bhi) - is check ke bina "success"
-    // maan kar welcome notification bhej dete the jabki DB mein kuch
-    // update hi nahi hua tha
-    const { data: updated, error } = await supabase
-      .from("members")
-      .update({
-        status: "active",
-        joined_at: today.toISOString().split("T")[0],
-        expires_at: expiry.toISOString().split("T")[0],
-      })
-      .eq("id", member.id)
-      .select()
-      .single();
-
-    if (error || !updated) {
-      alert("Approve failed: " + (error?.message || "member row not found"));
+    if (!res.success) {
+      alert("Approve failed: " + (res.message || res.error));
       return;
     }
 
@@ -414,9 +382,9 @@ function OwnerDashboard() {
   const handleReject = async (id) => {
     if (!confirm("Reject this member request?")) return;
 
-    const { error } = await supabase.from("members").delete().eq("id", id);
+    const res = await apiFetch(`/api/members/${id}`, { method: "DELETE" });
 
-    if (!error) {
+    if (res.success) {
       alert("Member request rejected.");
       fetchDashboard();
     }

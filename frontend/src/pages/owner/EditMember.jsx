@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
+import { apiFetch } from '../../lib/api'
 
 function EditMember() {
   const navigate = useNavigate()
@@ -17,17 +17,10 @@ function EditMember() {
     expires_at: '',
   })
 
-  useEffect(() => {
-    if (id) fetchMember()
-  }, [id])
-
   const fetchMember = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('members')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const res = await apiFetch(`/api/members/${id}`)
+    const data = res.success ? res.member : null
 
     if (data) {
       setForm({
@@ -42,6 +35,10 @@ function EditMember() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    if (id) queueMicrotask(fetchMember)
+  }, [id])
+
   const set = (key) => (e) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }))
 
@@ -49,23 +46,23 @@ function EditMember() {
     if (!form.name || !form.phone) return
     setSaving(true)
 
-    const { error } = await supabase
-      .from('members')
-      .update({
+    const res = await apiFetch(`/api/members/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
         name:       form.name,
         phone:      form.phone,
         plan:       form.plan,
         status:     form.status,
         joined_at:  form.joined_at,
         expires_at: form.expires_at,
-      })
-      .eq('id', id)
+      }),
+    })
 
-    if (!error) {
+    if (res.success) {
       alert('✅ Member updated successfully!')
       navigate(`/owner/members/${id}`)
     } else {
-      alert('Something went wrong: ' + error.message)
+      alert('Something went wrong: ' + (res.message || res.error))
     }
     setSaving(false)
   }

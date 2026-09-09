@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { usePrices } from "../../hooks/usePrices";
@@ -18,11 +17,8 @@ function Payments() {
   const fetchData = async () => {
     setLoading(true);
 
-    const { data: memberData } = await supabase
-      .from("members")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    const memberRes = await apiFetch("/api/members/me");
+    const memberData = memberRes.success ? memberRes.member : null;
 
     // payments table RLS-locked hai (koi bhi anon key se sabka payment
     // history nahi padh sake) - backend Firebase token verify karke
