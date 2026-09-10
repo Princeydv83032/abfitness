@@ -3,8 +3,13 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const cron = require("node-cron");
+const { generalLimiter } = require("./middleware/rateLimit");
 
 const app = express();
+
+// Render ek reverse proxy ke peeche chalata hai - isके bina rate limiter
+// sab requests ko proxy ke ek hi IP se aata hua maan lega
+app.set("trust proxy", 1);
 
 const allowedOrigins = [
   'http://localhost:5173',
@@ -30,6 +35,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use("/api", generalLimiter);
 
 // Routes
 app.use("/api/auth", require("./routes/auth"));

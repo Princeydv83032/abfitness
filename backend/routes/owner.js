@@ -1,6 +1,7 @@
 const router = require('express').Router()
 const { createClient } = require('@supabase/supabase-js')
 const { verifyFirebaseToken, verifyMember, verifyOwner } = require('../middleware/auth')
+const { authLimiter } = require('../middleware/rateLimit')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -13,7 +14,7 @@ const supabase = createClient(
 // gym config (upi_id, coordinates, fees settings) kisi bhi anon ko de
 // deti thi sirf phone number daal ke
 // ═══════════════════════════════════════════════════════════
-router.post('/check-phone', async (req, res) => {
+router.post('/check-phone', authLimiter, async (req, res) => {
   const { phone } = req.body
   if (!phone) return res.status(400).json({ success: false, message: 'Phone required' })
 

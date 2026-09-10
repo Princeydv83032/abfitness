@@ -169,6 +169,10 @@ const supabase = createClient(
 );
 
 const { initFirebaseAdmin } = require("../lib/firebaseAdmin");
+// Ye poori file ke routes koi auth check nahi karte (test routes + welcome/
+// invoice triggers) - authLimiter hi abhi ke liye inhe abuse se bachata hai
+const { authLimiter } = require("../middleware/rateLimit");
+router.use(authLimiter);
 
 let messaging = null;
 
