@@ -179,7 +179,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 
 function Videos() {
   const navigate = useNavigate();
@@ -187,25 +187,21 @@ function Videos() {
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(null);
 
-  useEffect(() => {
-    fetchVideos();
-  }, []);
-
   const fetchVideos = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("exercises")
-      .select("*")
-      .not("video_url", "is", null)
-      .order("created_at", { ascending: false });
-
-    if (data) setVideos(data);
+    // exercises table RLS-locked hai - owner-verified backend route se
+    const res = await apiFetch("/api/exercises/videos");
+    if (res.success) setVideos(res.videos);
     setLoading(false);
   };
 
+  useEffect(() => {
+    queueMicrotask(fetchVideos);
+  }, []);
+
   const handleDelete = async (id) => {
     if (!confirm("Delete this video?")) return;
-    await supabase.from("exercises").delete().eq("id", id);
+    await apiFetch(`/api/exercises/${id}`, { method: "DELETE" });
     fetchVideos();
   };
 

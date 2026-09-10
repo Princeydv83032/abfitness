@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import { FiX, FiPlay } from "react-icons/fi";
 import { IoMoonOutline, IoBulbOutline } from "react-icons/io5";
 
@@ -30,12 +30,9 @@ function Workout() {
 
   const fetchExercises = async (day) => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("exercises")
-      .select("*")
-      .eq("day", day)
-      .order("order_index");
-    if (!error) setExercises(data);
+    // exercises table RLS-locked hai - verifyMember token se deta hai
+    const res = await apiFetch(`/api/exercises/day/${day}`);
+    if (res.success) setExercises(res.exercises);
     setLoading(false);
   };
 
