@@ -377,15 +377,12 @@ function WaterStatCard({ memberId }) {
   const percentage = Math.min(100, Math.round((glasses / goal) * 100));
 
   const fetchWater = async () => {
-    const { data } = await supabase
-      .from("water_logs")
-      .select("*")
-      .eq("member_id", memberId)
-      .eq("date", today)
-      .maybeSingle();
-    if (data) {
-      setGlasses(data.glasses);
-      setGoal(data.goal);
+    // water_logs table RLS-locked hai - verifyMember token se req.member.id
+    // match karke deta hai
+    const res = await apiFetch(`/api/logs/water?date=${today}`);
+    if (res.success && res.log) {
+      setGlasses(res.log.glasses);
+      setGoal(res.log.goal);
     }
   };
 
@@ -398,10 +395,10 @@ function WaterStatCard({ memberId }) {
     if (newGlasses < 0 || newGlasses > 20 || updating) return;
     setUpdating(true);
     setGlasses(newGlasses);
-    await supabase.from("water_logs").upsert(
-      { member_id: memberId, date: today, glasses: newGlasses, goal },
-      { onConflict: "member_id,date" },
-    );
+    await apiFetch("/api/logs/water", {
+      method: "POST",
+      body: JSON.stringify({ date: today, glasses: newGlasses, goal }),
+    });
     setUpdating(false);
   };
 
@@ -466,13 +463,10 @@ function SupplementCard({ memberId }) {
   const allDone = done === supplements.length;
 
   const fetchSupplements = async () => {
-    const { data } = await supabase
-      .from("supplement_logs")
-      .select("*")
-      .eq("member_id", memberId)
-      .eq("date", today)
-      .maybeSingle();
-    if (data?.supplements) setTaken(data.supplements);
+    // supplement_logs table RLS-locked hai - verifyMember token se
+    // req.member.id match karke deta hai
+    const res = await apiFetch(`/api/logs/supplements?date=${today}`);
+    if (res.success && res.log?.supplements) setTaken(res.log.supplements);
   };
 
   useEffect(() => {
@@ -483,10 +477,10 @@ function SupplementCard({ memberId }) {
     const newTaken = { ...taken, [id]: !taken[id] };
     setTaken(newTaken);
     setUpdating(true);
-    await supabase.from("supplement_logs").upsert(
-      { member_id: memberId, date: today, supplements: newTaken },
-      { onConflict: "member_id,date" },
-    );
+    await apiFetch("/api/logs/supplements", {
+      method: "POST",
+      body: JSON.stringify({ date: today, supplements: newTaken }),
+    });
     setUpdating(false);
   };
 

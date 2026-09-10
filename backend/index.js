@@ -37,6 +37,7 @@ app.use('/api/payment', require('./routes/payment'))
 app.use("/api/members", require("./routes/members"));
 app.use("/api/owner", require("./routes/owner"));
 app.use("/api/attendance", require("./routes/attendance"));
+app.use("/api/logs", require("./routes/dailyLogs"));
 app.use("/api/notifications", require("./routes/notifications").router);
 
 // Health check
