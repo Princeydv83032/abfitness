@@ -1,6 +1,7 @@
 const router = require('express').Router()
 const { createClient } = require('@supabase/supabase-js')
 const { verifyFirebaseToken, verifyMember, verifyOwner } = require('../middleware/auth')
+const { authLimiter } = require('../middleware/rateLimit')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -195,7 +196,7 @@ const buildIdentityFilter = ({ uid, email }) =>
   email ? `google_id.eq.${uid},email.eq.${email}` : `google_id.eq.${uid}`
 
 // Login / duplicate-check — is Google account se pehle se koi member hai?
-router.get('/lookup', verifyFirebaseToken, async (req, res) => {
+router.get('/lookup', authLimiter, verifyFirebaseToken, async (req, res) => {
   const { uid, email } = req.firebaseUser
 
   const { data, error } = await supabase
@@ -220,7 +221,7 @@ router.get('/lookup', verifyFirebaseToken, async (req, res) => {
 })
 
 // Naya registration
-router.post('/register', verifyFirebaseToken, async (req, res) => {
+router.post('/register', authLimiter, verifyFirebaseToken, async (req, res) => {
   const { name, phone, age, goal, profilePhoto } = req.body
   const { uid, email } = req.firebaseUser
 

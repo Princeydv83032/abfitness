@@ -4,6 +4,7 @@ const crypto    = require('crypto')
 const { createClient } = require('@supabase/supabase-js')
 const { sendInvoiceEmail } = require('../utils/email')
 const { verifyMember, verifyOwner } = require('../middleware/auth')
+const { paymentLimiter } = require('../middleware/rateLimit')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -30,7 +31,7 @@ const getFees = async () => {
 // ── Create Order ─────────────────────────────────────
 // memberId client se nahi, verified token se - warna koi bhi kisi aur
 // member ke liye order bana sakta tha
-router.post('/create-order', verifyMember, async (req, res) => {
+router.post('/create-order', paymentLimiter, verifyMember, async (req, res) => {
   const { plan } = req.body
   const memberId = req.member.id
 
@@ -67,7 +68,7 @@ router.post('/create-order', verifyMember, async (req, res) => {
 })
 
 // ── Verify Payment ───────────────────────────────────
-router.post('/verify', async (req, res) => {
+router.post('/verify', paymentLimiter, async (req, res) => {
   const {
     razorpay_order_id,
     razorpay_payment_id,
