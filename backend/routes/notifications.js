@@ -173,6 +173,8 @@ const { initFirebaseAdmin } = require("../lib/firebaseAdmin");
 // invoice triggers) - authLimiter hi abhi ke liye inhe abuse se bachata hai
 const { authLimiter } = require("../middleware/rateLimit");
 router.use(authLimiter);
+const { validate } = require("../middleware/validate");
+const { withToken, sendInvoice, sendWelcome } = require("../validators/notifications");
 
 let messaging = null;
 
@@ -217,7 +219,7 @@ const sendNotification = async (token, title, body) => {
 };
 
 // ── Test Routes ──────────────────────────────────────
-router.post("/test", async (req, res) => {
+router.post("/test", validate(withToken), async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: "Token required" });
   const success = await sendNotification(
@@ -228,7 +230,7 @@ router.post("/test", async (req, res) => {
   res.json({ success });
 });
 
-router.post("/test-morning", async (req, res) => {
+router.post("/test-morning", validate(withToken), async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: "Token required" });
   const days = [
@@ -259,7 +261,7 @@ router.post("/test-morning", async (req, res) => {
   res.json({ success });
 });
 
-router.post("/test-streak", async (req, res) => {
+router.post("/test-streak", validate(withToken), async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: "Token required" });
   const success = await sendNotification(
@@ -270,7 +272,7 @@ router.post("/test-streak", async (req, res) => {
   res.json({ success });
 });
 
-router.post("/test-water", async (req, res) => {
+router.post("/test-water", validate(withToken), async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: "Token required" });
   const success = await sendNotification(
@@ -281,7 +283,7 @@ router.post("/test-water", async (req, res) => {
   res.json({ success });
 });
 
-router.post("/test-expiry", async (req, res) => {
+router.post("/test-expiry", validate(withToken), async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: "Token required" });
   const success = await sendNotification(
@@ -292,7 +294,7 @@ router.post("/test-expiry", async (req, res) => {
   res.json({ success });
 });
 
-router.post("/test-badge", async (req, res) => {
+router.post("/test-badge", validate(withToken), async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: "Token required" });
   const success = await sendNotification(
@@ -304,7 +306,7 @@ router.post("/test-badge", async (req, res) => {
 });
 
 // ── Send Invoice Email ───────────────────────────────
-router.post("/send-invoice", async (req, res) => {
+router.post("/send-invoice", validate(sendInvoice), async (req, res) => {
   const { memberId, paymentId } = req.body;
 
   try {
@@ -352,7 +354,7 @@ router.post("/send-invoice", async (req, res) => {
 // usually can't go out immediately. Home.jsx calls this route again right
 // after it saves the member's first token, and this route only actually
 // (re)sends whichever channel hasn't gone out yet.
-router.post("/send-welcome", async (req, res) => {
+router.post("/send-welcome", validate(sendWelcome), async (req, res) => {
   const { memberId } = req.body;
 
   try {

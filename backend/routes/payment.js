@@ -5,6 +5,13 @@ const { createClient } = require('@supabase/supabase-js')
 const { sendInvoiceEmail } = require('../utils/email')
 const { verifyMember, verifyOwner } = require('../middleware/auth')
 const { paymentLimiter } = require('../middleware/rateLimit')
+const { validate } = require('../middleware/validate')
+const {
+  createOrder,
+  verify: verifySchema,
+  addMember,
+  logPayment,
+} = require('../validators/payment')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -31,7 +38,7 @@ const getFees = async () => {
 // ── Create Order ─────────────────────────────────────
 // memberId client se nahi, verified token se - warna koi bhi kisi aur
 // member ke liye order bana sakta tha
-router.post('/create-order', paymentLimiter, verifyMember, async (req, res) => {
+router.post('/create-order', paymentLimiter, verifyMember, validate(createOrder), async (req, res) => {
   const { plan } = req.body
   const memberId = req.member.id
 
@@ -68,7 +75,7 @@ router.post('/create-order', paymentLimiter, verifyMember, async (req, res) => {
 })
 
 // ── Verify Payment ───────────────────────────────────
-router.post('/verify', paymentLimiter, async (req, res) => {
+router.post('/verify', paymentLimiter, validate(verifySchema), async (req, res) => {
   const {
     razorpay_order_id,
     razorpay_payment_id,
@@ -217,7 +224,7 @@ router.get('/member/:memberId', verifyOwner, async (req, res) => {
 })
 
 // ── Owner: naya member add karo (+ initial payment) ───────────────────
-router.post('/add-member', verifyOwner, async (req, res) => {
+router.post('/add-member', verifyOwner, validate(addMember), async (req, res) => {
   const { name, phone, plan, paymentMethod, upiRef, joinDate } = req.body
 
   if (!name || !phone || phone.length !== 10) {
@@ -271,7 +278,7 @@ router.post('/add-member', verifyOwner, async (req, res) => {
 })
 
 // ── Owner: existing member ke liye manual payment log karo ────────────
-router.post('/log', verifyOwner, async (req, res) => {
+router.post('/log', verifyOwner, validate(logPayment), async (req, res) => {
   const { memberId, plan, method, upiRef } = req.body
 
   if (!memberId || !PLAN_DAYS[plan]) {

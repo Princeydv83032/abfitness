@@ -1,6 +1,8 @@
 const router = require('express').Router()
 const { createClient } = require('@supabase/supabase-js')
 const { verifyMember, verifyOwner } = require('../middleware/auth')
+const { validate } = require('../middleware/validate')
+const { checkIn, mark } = require('../validators/attendance')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -47,7 +49,7 @@ router.get('/me', verifyMember, async (req, res) => {
 // Check-in - geofence validation ab yahan hoti hai (client sirf apni
 // coordinates bhejta hai, distance/radius decision server karta hai) aur
 // date bhi server ke clock se aata hai, client ke "today" par trust nahi
-router.post('/check-in', verifyMember, async (req, res) => {
+router.post('/check-in', verifyMember, validate(checkIn), async (req, res) => {
   const { lat, lng } = req.body
   const today = new Date().toISOString().split('T')[0]
 
@@ -117,7 +119,7 @@ router.get('/today', verifyOwner, async (req, res) => {
 })
 
 // Manual check-in - owner kisi member ko phone se dhundh ke mark karta hai
-router.post('/mark', verifyOwner, async (req, res) => {
+router.post('/mark', verifyOwner, validate(mark), async (req, res) => {
   const { memberId } = req.body
   if (!memberId) return res.status(400).json({ success: false, message: 'memberId required' })
 
