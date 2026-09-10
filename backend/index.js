@@ -7,7 +7,7 @@ const { generalLimiter } = require("./middleware/rateLimit");
 
 const app = express();
 
-// Render ek reverse proxy ke peeche chalata hai - isके bina rate limiter
+// Render ek reverse proxy ke peeche chalata hai - is bina rate limiter
 // sab requests ko proxy ke ek hi IP se aata hua maan lega
 app.set("trust proxy", 1);
 
@@ -34,12 +34,19 @@ app.use(
   }),
 );
 
+// Razorpay webhook - signature raw request body (exact bytes) par verify
+// hoti hai, isliye ye route express.json() se pehle apna khud ka raw
+// parser leta hai. Baaki sab routes ke liye niche normal express.json()
+// hi chalta hai
+const { router: paymentRouter, handleWebhook } = require("./routes/payment");
+app.post("/api/payment/webhook", express.raw({ type: "application/json" }), handleWebhook);
+
 app.use(express.json());
 app.use("/api", generalLimiter);
 
 // Routes
 app.use("/api/auth", require("./routes/auth"));
-app.use('/api/payment', require('./routes/payment'))
+app.use('/api/payment', paymentRouter)
 app.use("/api/members", require("./routes/members"));
 app.use("/api/owner", require("./routes/owner"));
 app.use("/api/attendance", require("./routes/attendance"));

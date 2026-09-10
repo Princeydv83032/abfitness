@@ -75,6 +75,90 @@ router.post('/create-order', paymentLimiter, verifyMember, validate(createOrder)
 })
 
 // ── Verify Payment ───────────────────────────────────
+// Payment record karo + member activate karo — /verify (client-side, turant
+// UX ke liye) aur webhook (Razorpay se server-to-server, agar client-side
+// call kabhi bhi na pahunche to backstop) dono isi ek function ko call
+// karte hain, taaki dono paths mein exactly same idempotency/logic ho aur
+// do jagah maintain na karni pade
+async function fulfillPayment(razorpay_order_id, razorpay_payment_id) {
+  // memberId/plan/amount client se nahi, Razorpay ke order se khud nikalo —
+  // order.notes wahi hai jo create-order ke waqt server ne set kiya tha,
+  // isliye ye tamper-proof source of truth hai
+  const order    = await razorpay.orders.fetch(razorpay_order_id)
+  const memberId = order.notes?.memberId
+  const plan     = order.notes?.plan
+  const amount   = order.amount / 100 // paise → rupees
+
+  if (!memberId || !PLAN_DAYS[plan]) {
+    return { success: false, message: 'Invalid order' }
+  }
+
+  // Same payment dobara process na ho jaaye - client /verify aur webhook
+  // dono isi ek payment ke liye call ho sakte hain (race condition), aur
+  // client retry/double-click bhi ho sakta hai
+  const { data: existing } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('upi_ref', razorpay_payment_id)
+    .maybeSingle()
+
+  if (existing) {
+    const { data: member } = await supabase
+      .from('members')
+      .select('expires_at')
+      .eq('id', memberId)
+      .single()
+    return { success: true, alreadyProcessed: true, expiresAt: member?.expires_at, paymentId: razorpay_payment_id }
+  }
+
+  const today      = new Date()
+  const expiryDate = new Date()
+  expiryDate.setDate(today.getDate() + PLAN_DAYS[plan])
+  const expiresAt = expiryDate.toISOString().split('T')[0]
+
+  const { data: payment, error: paymentError } = await supabase
+    .from('payments')
+    .insert({
+      member_id: memberId,
+      amount,
+      method:    'razorpay',
+      upi_ref:   razorpay_payment_id,
+      plan,
+      paid_at:   new Date().toISOString(),
+    })
+    .select()
+    .single()
+
+  if (paymentError) throw paymentError
+
+  await supabase
+    .from('members')
+    .update({
+      expires_at: expiresAt,
+      plan,
+      status: 'active',
+    })
+    .eq('id', memberId)
+
+  const { data: member } = await supabase
+    .from('members')
+    .select('*')
+    .eq('id', memberId)
+    .single()
+
+  const { data: owner } = await supabase
+    .from('owner')
+    .select('gym_name')
+    .single()
+
+  if (member?.email) {
+    sendInvoiceEmail({ member, payment, gymName: owner?.gym_name })
+      .catch((err) => console.log('Invoice email error:', err.message))
+  }
+
+  return { success: true, expiresAt, paymentId: razorpay_payment_id }
+}
+
 router.post('/verify', paymentLimiter, validate(verifySchema), async (req, res) => {
   const {
     razorpay_order_id,
@@ -83,9 +167,10 @@ router.post('/verify', paymentLimiter, validate(verifySchema), async (req, res) 
   } = req.body
 
   try {
-    // Step 1 — Signature verify karo
-    const body      = razorpay_order_id + '|' + razorpay_payment_id
-    const expected  = crypto
+    // Signature verify karo (checkout response ka signature - alag secret,
+    // webhook wale se alag hai)
+    const body     = razorpay_order_id + '|' + razorpay_payment_id
+    const expected = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
       .update(body)
       .digest('hex')
@@ -94,94 +179,82 @@ router.post('/verify', paymentLimiter, validate(verifySchema), async (req, res) 
       return res.status(400).json({ success: false, message: 'Invalid signature' })
     }
 
-    // Step 2 — memberId/plan/amount client se nahi, Razorpay ke order se
-    // khud nikalo — order.notes wahi hai jo create-order ke waqt server ne
-    // set kiya tha, isliye ye tamper-proof source of truth hai
-    const order    = await razorpay.orders.fetch(razorpay_order_id)
-    const memberId = order.notes?.memberId
-    const plan     = order.notes?.plan
-    const amount   = order.amount / 100 // paise → rupees
-
-    if (!memberId || !PLAN_DAYS[plan]) {
-      return res.status(400).json({ success: false, message: 'Invalid order' })
+    const result = await fulfillPayment(razorpay_order_id, razorpay_payment_id)
+    if (!result.success) {
+      return res.status(400).json(result)
     }
 
-    // Same payment dobara verify na ho jaaye (retry/double-click se)
-    const { data: existing } = await supabase
-      .from('payments')
-      .select('id')
-      .eq('upi_ref', razorpay_payment_id)
-      .maybeSingle()
-
-    if (existing) {
-      const { data: member } = await supabase
-        .from('members')
-        .select('expires_at')
-        .eq('id', memberId)
-        .single()
-      return res.json({ success: true, expiresAt: member?.expires_at, paymentId: razorpay_payment_id })
-    }
-
-    // Step 3 — Expiry calculate karo
-    const today      = new Date()
-    const expiryDate = new Date()
-    expiryDate.setDate(today.getDate() + PLAN_DAYS[plan])
-    const expiresAt = expiryDate.toISOString().split('T')[0]
-
-    // Step 4 — Payment Supabase mein save karo
-    const { data: payment, error: paymentError } = await supabase
-      .from('payments')
-      .insert({
-        member_id: memberId,
-        amount,
-        method:    'razorpay',
-        upi_ref:   razorpay_payment_id,
-        plan,
-        paid_at:   new Date().toISOString(),
-      })
-      .select()
-      .single()
-
-    if (paymentError) throw paymentError
-
-    // Step 5 — Member update karo
-    await supabase
-      .from('members')
-      .update({
-        expires_at: expiresAt,
-        plan,
-        status: 'active',
-      })
-      .eq('id', memberId)
-
-    // Step 6 — Invoice email bhejo
-    const { data: member } = await supabase
-      .from('members')
-      .select('*')
-      .eq('id', memberId)
-      .single()
-
-    const { data: owner } = await supabase
-      .from('owner')
-      .select('gym_name')
-      .single()
-
-    if (member?.email) {
-      sendInvoiceEmail({ member, payment, gymName: owner?.gym_name })
-        .catch((err) => console.log('Invoice email error:', err.message))
-    }
-
-    res.json({
-      success:   true,
-      expiresAt,
-      paymentId: razorpay_payment_id,
-    })
-
+    res.json(result)
   } catch (err) {
     console.log('Verify error:', err)
     res.status(500).json({ success: false, error: err.message })
   }
 })
+
+// ── Razorpay Webhook (server-to-server backstop) ──────
+// Agar checkout beech mein interrupt ho jaaye (tab band, network drop) to
+// client ka /verify call kabhi backend tak pahunchta hi nahi, chahe
+// Razorpay ne actually charge kar liya ho — is route ke bina aisa payment
+// hamesha ke liye "missing" reh jaata. Razorpay khud seedha yahan hit
+// karta hai jab payment capture hoti hai, chahe client kahin bhi ho.
+//
+// Signature raw request body par verify hoti hai (JSON.parse karne se
+// pehle wale exact bytes) - isliye is route ko index.js mein express.json()
+// se pehle apna khud ka express.raw() middleware milta hai, req.body yahan
+// ek Buffer hota hai, string nahi.
+async function handleWebhook(req, res) {
+  try {
+    const signature = req.headers['x-razorpay-signature']
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET
+
+    if (!webhookSecret) {
+      console.log('Webhook error: RAZORPAY_WEBHOOK_SECRET not configured')
+      return res.status(500).json({ success: false, message: 'Webhook not configured' })
+    }
+
+    if (!signature) {
+      return res.status(400).json({ success: false, message: 'Missing signature' })
+    }
+
+    const expected = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(req.body) // raw Buffer
+      .digest('hex')
+
+    if (expected !== signature) {
+      return res.status(400).json({ success: false, message: 'Invalid webhook signature' })
+    }
+
+    const payload = JSON.parse(req.body.toString('utf8'))
+
+    // Sirf successful payment capture handle karo - baaki events (jaise
+    // order.paid, payment.failed) ko 200 se acknowledge karo taaki Razorpay
+    // retry na kare, lekin kuch process nahi karte
+    if (payload.event !== 'payment.captured') {
+      return res.json({ success: true, ignored: payload.event })
+    }
+
+    const payment = payload.payload?.payment?.entity
+    if (!payment?.order_id || !payment?.id) {
+      return res.json({ success: true, message: 'No payment entity in payload' })
+    }
+
+    const result = await fulfillPayment(payment.order_id, payment.id)
+    if (!result.success) {
+      console.log('Webhook: fulfillPayment failed', result.message, payment.order_id)
+    }
+
+    // Hamesha 200 bhejo agar humne payload process kar liya (chahe
+    // fulfillPayment ka logic-level result false ho) - warna Razorpay
+    // isi cheez ko baar-baar retry karta rahega
+    res.json({ success: true })
+  } catch (err) {
+    console.log('Webhook error:', err)
+    // 500 sirf real/transient failure (DB down, etc.) ke liye - Razorpay
+    // ise retry karega
+    res.status(500).json({ success: false, error: err.message })
+  }
+}
 
 // ── Member: apna payment history ──────────────────────
 router.get('/my-history', verifyMember, async (req, res) => {
@@ -343,4 +416,4 @@ router.get('/members-for-logging', verifyOwner, async (req, res) => {
   res.json({ success: true, members: data })
 })
 
-module.exports = router
+module.exports = { router, handleWebhook }
