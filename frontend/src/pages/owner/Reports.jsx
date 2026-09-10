@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
 import { apiFetch } from '../../lib/api'
 
 function Reports() {
@@ -41,12 +40,12 @@ function Reports() {
 
     const maxWeek = Math.max(...weeks, 1)
 
-    // Total attendance this month
-    const { count: totalAttendance } = await supabase
-      .from('attendance')
-      .select('*', { count: 'exact', head: true })
-      .gte('date', monthStart)
-      .lte('date', monthEnd)
+    // Total attendance this month — attendance table RLS-locked hai,
+    // owner-verified backend route se
+    const attendanceCountRes = await apiFetch(
+      `/api/attendance/count?from=${monthStart}&to=${monthEnd}`,
+    )
+    const totalAttendance = attendanceCountRes.success ? attendanceCountRes.count : 0
 
     setStats({
       activeMembers:  activeMembers  || 0,

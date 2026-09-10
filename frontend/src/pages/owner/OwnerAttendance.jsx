@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
 import { apiFetch } from '../../lib/api'
 
 function OwnerAttendance() {
@@ -8,7 +7,6 @@ function OwnerAttendance() {
   const [search,     setSearch]     = useState('')
   const [stats,      setStats]      = useState({ present: 0, expected: 0 })
 
-  const today = new Date().toISOString().split('T')[0]
   const todayFormatted = new Date().toLocaleDateString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric'
   })
@@ -16,18 +14,15 @@ function OwnerAttendance() {
   const fetchAttendance = async () => {
     setLoading(true)
 
-    // Today's check-ins with member info
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*, members(name, member_id)')
-      .eq('date', today)
-      .order('checked_in_at', { ascending: false })
+    // attendance table RLS-locked hai - owner-verified backend route se
+    const attendanceRes = await apiFetch('/api/attendance/today')
+    const data = attendanceRes.success ? attendanceRes.attendance : []
 
     // Total active members
     const statsRes = await apiFetch('/api/members/stats')
     const totalMembers = statsRes.success ? statsRes.active : 0
 
-    if (!error) {
+    if (attendanceRes.success) {
       setAttendance(data)
       setStats({
         present:  data.length,
@@ -56,15 +51,12 @@ function OwnerAttendance() {
     }
 
     // Check-in karo
-    const { error } = await supabase
-      .from('attendance')
-      .insert({
-        member_id:     member.id,
-        date:          today,
-        checked_in_at: new Date().toISOString(),
-      })
+    const res = await apiFetch('/api/attendance/mark', {
+      method: 'POST',
+      body: JSON.stringify({ memberId: member.id }),
+    })
 
-    if (error) {
+    if (!res.success) {
       alert('Already checked in today!')
     } else {
       alert(`${member.name} checked in! ✅`)

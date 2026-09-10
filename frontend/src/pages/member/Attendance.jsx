@@ -1,23 +1,8 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
 import BadgePopup from "../../components/BadgePopup";
-
-const getDistance = (lat1, lng1, lat2, lng2) => {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
 
 function Attendance() {
   const user = useAuthStore((state) => state.user);
@@ -40,16 +25,13 @@ function Attendance() {
   const fetchAttendance = async () => {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("attendance")
-      .select("*")
-      .eq("member_id", user.id)
-      .gte("date", `${month}-01`)
-      .order("date", { ascending: true });
+    // attendance table RLS-locked hai - verifyMember token se req.member.id
+    // match karke deta hai
+    const res = await apiFetch(`/api/attendance/me?month=${month}`);
 
-    if (!error) {
-      setAttendance(data);
-      const todayRecord = data.find((a) => a.date === today);
+    if (res.success) {
+      setAttendance(res.attendance);
+      const todayRecord = res.attendance.find((a) => a.date === today);
       setCheckedToday(!!todayRecord);
     }
     setLoading(false);
@@ -59,118 +41,22 @@ function Attendance() {
     if (user?.id) queueMicrotask(fetchAttendance);
   }, [user]);
 
-  // const handleCheckIn = async () => {
-  //   if (checkedToday) return;
-  //   setCheckingIn(true);
-
-  //   const { error } = await supabase.from("attendance").insert({
-  //     member_id: user.id,
-  //     date: today,
-  //     checked_in_at: new Date().toISOString(),
-  //   });
-
-  //   if (!error) {
-  //     setCheckedToday(true);
-  //     await updateStreak();
-  //     fetchAttendance();
-  //   } else {
-  //     alert("Already checked in today!");
-  //   }
-  //   setCheckingIn(false);
-  // };
-
-  // const handleCheckIn = async () => {
-  //   if (checkedToday) return;
-  //   setCheckingIn(true);
-
-  //   try {
-  //     // Step 1 — Gym location fetch karo
-  //     const { data: owner } = await supabase
-  //       .from("owner")
-  //       .select("gym_lat, gym_lng, geo_radius")
-  //       .single();
-
-  //     // Step 2 — Gym location set hai?
-  //     if (owner?.gym_lat && owner?.gym_lng) {
-  //       // Step 3 — Member ki location lo
-  //       const position = await new Promise((resolve, reject) => {
-  //         navigator.geolocation.getCurrentPosition(resolve, reject, {
-  //           enableHighAccuracy: true,
-  //           timeout: 10000,
-  //         });
-  //       });
-
-  //       const memberLat = position.coords.latitude;
-  //       const memberLng = position.coords.longitude;
-  //       const radius = owner.geo_radius || 100;
-
-  //       // Step 4 — Distance calculate karo
-  //       const distance = getDistance(
-  //         memberLat,
-  //         memberLng,
-  //         parseFloat(owner.gym_lat),
-  //         parseFloat(owner.gym_lng),
-  //       );
-
-  //       console.log(`Distance: ${distance.toFixed(0)}m | Allowed: ${radius}m`);
-
-  //       // Step 5 — Distance check karo
-  //       if (distance > radius) {
-  //         setCheckingIn(false);
-  //         alert(
-  //           `❌ You must be at gym!\n\n` +
-  //             `📍 You are ${distance.toFixed(0)}m away\n` +
-  //             `✅ Must be within ${radius}m of gym`,
-  //         );
-  //         return;
-  //       }
-  //     }
-
-  //     // Step 6 — Location OK → Check-in karo
-  //     const { error } = await supabase.from("attendance").insert({
-  //       member_id: user.id,
-  //       date: today,
-  //       checked_in_at: new Date().toISOString(),
-  //     });
-
-  //     if (!error) {
-  //       setCheckedToday(true);
-  //       await updateStreak();
-  //       fetchAttendance();
-  //     } else {
-  //       alert("Already checked in today!");
-  //     }
-  //   } catch (err) {
-  //     if (err.code === 1) {
-  //       // Permission denied
-  //       alert(
-  //         "📍 Please allow location access to check-in\n\nSettings → Browser → Location → Allow",
-  //       );
-  //     } else if (err.code === 3) {
-  //       // Timeout
-  //       alert("📍 Location timeout. Please try again.");
-  //     } else {
-  //       console.log("Check-in error:", err);
-  //       alert("Something went wrong. Try again.");
-  //     }
-  //   } finally {
-  //     setCheckingIn(false);
-  //   }
-  // };
-
   const handleCheckIn = async () => {
     if (checkedToday) return;
     setCheckingIn(true);
 
     try {
-      // Step 1 — Gym location fetch karo - owner table RLS-locked hai,
-      // sirf ye 4 columns (poora row nahi)
+      // Step 1 — Gym location set hai kya, ye pehle check karo taaki
+      // location set na hone par unnecessarily geolocation permission na
+      // maango
       const ownerRes = await apiFetch("/api/owner/geofence");
       const owner = ownerRes.success ? ownerRes : null;
 
-      // Step 2 — Gym location set hai?
+      let lat = null;
+      let lng = null;
+
       if (owner?.gym_lat && owner?.gym_lng) {
-        // Step 3 — Member ki location lo
+        // Step 2 — Member ki location lo
         const position = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
@@ -178,50 +64,33 @@ function Attendance() {
           });
         });
 
-        const memberLat = position.coords.latitude;
-        const memberLng = position.coords.longitude;
-        const radius = owner.geo_radius || 100;
-
-        // Step 4 — Distance calculate karo
-        const distance = getDistance(
-          memberLat,
-          memberLng,
-          parseFloat(owner.gym_lat),
-          parseFloat(owner.gym_lng),
-        );
-
-        console.log(`Distance: ${distance.toFixed(0)}m | Allowed: ${radius}m`);
-
-        // Step 5 — Distance check karo
-        if (distance > radius) {
-          setCheckingIn(false);
-          setLocationError({
-            distance: Math.round(distance),
-            radius,
-            gymName: owner.gym_name || "AB Fitness",
-          });
-          return;
-        } else {
-          // Location OK — clear any previous error
-          setLocationError(null);
-        }
+        lat = position.coords.latitude;
+        lng = position.coords.longitude;
       }
 
-      // Step 6 — Check-in karo
-      const { error } = await supabase.from("attendance").insert({
-        member_id: user.id,
-        date: today,
-        checked_in_at: new Date().toISOString(),
+      // Step 3 — Check-in karo. Distance validation ab server-side hoti
+      // hai (owner table + geofence math dono backend pe) - client sirf
+      // apni coordinates bhejta hai, decision nahi karta
+      const res = await apiFetch("/api/attendance/check-in", {
+        method: "POST",
+        body: JSON.stringify({ lat, lng }),
       });
 
-      if (!error) {
+      if (res.success) {
         setCheckedToday(true);
         setLocationError(null);
         await updateStreak();
         fetchAttendance();
+      } else if (res.distance !== undefined) {
+        setLocationError({
+          distance: res.distance,
+          radius: res.radius,
+          gymName: res.gymName,
+        });
+      } else if (res.message && res.message !== "Already checked in today") {
+        console.log("Check-in error:", res.message);
       }
     } catch (err) {
-      setCheckingIn(false);
       if (err.code === 1) {
         setLocationError({ permissionDenied: true });
       } else if (err.code === 3) {

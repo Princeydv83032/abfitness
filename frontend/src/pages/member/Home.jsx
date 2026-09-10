@@ -77,18 +77,12 @@ function Home() {
     const memberRes = await apiFetch("/api/members/me");
     const member = memberRes.success ? memberRes.member : null;
 
-    const { count: attendance } = await supabase
-      .from("attendance")
-      .select("*", { count: "exact", head: true })
-      .eq("member_id", user.id)
-      .gte("date", `${month}-01`);
-
-    const { data: todayRecord } = await supabase
-      .from("attendance")
-      .select("id")
-      .eq("member_id", user.id)
-      .eq("date", todayDate)
-      .maybeSingle();
+    // attendance table RLS-locked hai - verifyMember token se req.member.id
+    // match karke deta hai
+    const attendanceRes = await apiFetch(`/api/attendance/me?month=${month}`);
+    const attendanceRecords = attendanceRes.success ? attendanceRes.attendance : [];
+    const attendance = attendanceRecords.length;
+    const todayRecord = attendanceRecords.find((a) => a.date === todayDate);
 
     if (member) {
       const daysLeft = Math.ceil(

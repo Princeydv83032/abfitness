@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
 import { apiFetch } from "../../lib/api";
 
 function MemberDetail() {
@@ -22,11 +21,11 @@ function MemberDetail() {
     const paymentsRes = await apiFetch(`/api/payment/member/${id}`);
     const paymentsData = paymentsRes.success ? paymentsRes.payments : [];
 
-    const { count: attendanceCount } = await supabase
-      .from("attendance")
-      .select("*", { count: "exact", head: true })
-      .eq("member_id", id)
-      .gte("date", `${month}-01`);
+    // attendance table RLS-locked hai - owner-verified backend route se
+    const attendanceRes = await apiFetch(
+      `/api/attendance/count?memberId=${id}&from=${month}-01`,
+    );
+    const attendanceCount = attendanceRes.success ? attendanceRes.count : 0;
 
     if (memberData) setMember(memberData);
     if (paymentsData) setPayments(paymentsData);
