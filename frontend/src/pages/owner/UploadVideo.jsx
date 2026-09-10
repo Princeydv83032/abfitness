@@ -301,7 +301,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 
 function UploadVideo() {
   const navigate = useNavigate();
@@ -389,21 +389,24 @@ function UploadVideo() {
       setProgress("Uploading video...");
       const videoUrl = await uploadToCloudinary(videoFile, "gym_videos");
 
-      // Save to Supabase
+      // Save - exercises table RLS-locked hai, owner-verified backend
+      // route se
       setProgress("Saving...");
-      const { error } = await supabase.from("exercises").insert({
-        name: form.name,
-        muscle_group: form.muscle_group,
-        day: form.day,
-        sets: parseInt(form.sets) || 3,
-        reps: form.reps || "10-12",
-        tip: form.tip || null,
-        video_url: videoUrl,
-        thumbnail_url: thumbnailUrl,
-        order_index: 0,
+      const res = await apiFetch("/api/exercises", {
+        method: "POST",
+        body: JSON.stringify({
+          name: form.name,
+          muscle_group: form.muscle_group,
+          day: form.day,
+          sets: form.sets,
+          reps: form.reps,
+          tip: form.tip,
+          video_url: videoUrl,
+          thumbnail_url: thumbnailUrl,
+        }),
       });
 
-      if (error) throw error;
+      if (!res.success) throw new Error(res.error || res.message);
 
       alert("✅ Video uploaded successfully!");
       navigate("/owner/videos");

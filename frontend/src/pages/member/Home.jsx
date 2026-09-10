@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
@@ -106,10 +105,9 @@ function Home() {
   // Har din ke liye pehli exercise ka thumbnail + kitni exercises hain -
   // slider card pe dikhane ke liye (real data, koi fake/placeholder gif nahi)
   const fetchWeekPlan = async () => {
-    const { data: exercises } = await supabase
-      .from("exercises")
-      .select("day, thumbnail_url")
-      .order("order_index");
+    // exercises table RLS-locked hai - verifyMember token se deta hai
+    const exercisesRes = await apiFetch("/api/exercises/week");
+    const exercises = exercisesRes.success ? exercisesRes.exercises : [];
 
     const grouped = {};
     DAYS.forEach((d) => {
