@@ -34,30 +34,45 @@ function Settings() {
     newMemberAlert: false,
   });
 
-  const fetchSettings = async () => {
+  const fetchSettings = async (retrying = false) => {
     setLoading(true);
     // owner table RLS-locked hai - verifyOwner middleware token se row match
     // karke deta hai
     const res = await apiFetch("/api/owner/me");
-    const data = res.success ? res.owner : null;
 
-    if (data) {
-      setGymName(data.gym_name || "");
-      setTiming(data.timing || "5:00 AM - 10:00 PM");
-      setUpiId(data.upi_id || "");
-      setQrUrl(data.upi_qr_url || "");
-      setGymLat(data.gym_lat || "");
-      setGymLng(data.gym_lng || "");
-      setGeoRadius(data.geo_radius || 100);
-      if (data.settings?.fees) setFees(data.settings.fees);
-      if (data.settings?.notifications)
-        setNotifications(data.settings.notifications);
+    // Fresh page load ke turant baad Firebase ka session kabhi-kabhi abhi
+    // restore ho hi raha hota hai - us waqt token nahi milta aur ye call
+    // 401 ke saath fail ho jaati hai. Pehle ye silently khaali fields chhoड़
+    // deta tha (Save karne par empty gym_name DB mein chala jaata) - ab
+    // ek baar khud retry karo, warna user ko saaf bata do
+    if (!res.success) {
+      if (!retrying) {
+        setTimeout(() => fetchSettings(true), 1000);
+        return;
+      }
+      setLoading(false);
+      alert(
+        "⚠️ Gym settings load nahi ho paayi. Please page reload karo aur dobara try karo.",
+      );
+      return;
     }
+
+    const data = res.owner;
+    setGymName(data.gym_name || "");
+    setTiming(data.timing || "5:00 AM - 10:00 PM");
+    setUpiId(data.upi_id || "");
+    setQrUrl(data.upi_qr_url || "");
+    setGymLat(data.gym_lat || "");
+    setGymLng(data.gym_lng || "");
+    setGeoRadius(data.geo_radius || 100);
+    if (data.settings?.fees) setFees(data.settings.fees);
+    if (data.settings?.notifications)
+      setNotifications(data.settings.notifications);
     setLoading(false);
   };
 
   useEffect(() => {
-    queueMicrotask(fetchSettings);
+    queueMicrotask(() => fetchSettings());
   }, []);
 
   const handleQRUpload = async (e) => {
