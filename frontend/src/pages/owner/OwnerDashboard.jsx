@@ -259,7 +259,6 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
@@ -286,11 +285,10 @@ function OwnerDashboard() {
     const expiringRes = await apiFetch("/api/members/expiring?days=7");
     const expiringData = expiringRes.success ? expiringRes.members : [];
 
-    // Today check-ins
-    const { count: todayCI } = await supabase
-      .from("attendance")
-      .select("*", { count: "exact", head: true })
-      .eq("date", today);
+    // Today check-ins — attendance table RLS-locked hai, owner-verified
+    // backend route se
+    const todayCIRes = await apiFetch(`/api/attendance/count?date=${today}`);
+    const todayCI = todayCIRes.success ? todayCIRes.count : 0;
 
     // Monthly payments — payments table RLS-locked hai, owner-verified
     // backend route se
