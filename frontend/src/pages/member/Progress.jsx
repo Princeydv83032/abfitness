@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 function Progress() {
@@ -16,21 +16,18 @@ function Progress() {
     year: "numeric",
   });
 
-  useEffect(() => {
-    if (user?.id) fetchPhotos();
-  }, [user]);
-
   const fetchPhotos = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("progress_photos")
-      .select("*")
-      .eq("member_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (data) setPhotos(data);
+    // progress_photos table RLS-locked hai - verifyMember token se
+    // req.member.id match karke deta hai
+    const res = await apiFetch("/api/members/me/photos");
+    if (res.success) setPhotos(res.photos);
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (user?.id) queueMicrotask(fetchPhotos);
+  }, [user]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0];
@@ -52,12 +49,14 @@ function Progress() {
       );
       const data = await res.json();
 
-      await supabase.from("progress_photos").insert({
-        member_id: user.id,
-        photo_url: data.secure_url,
-        weight: weight ? parseFloat(weight) : null,
-        notes: notes || null,
-        month: currentMonth,
+      await apiFetch("/api/members/me/photos", {
+        method: "POST",
+        body: JSON.stringify({
+          photo_url: data.secure_url,
+          weight,
+          notes,
+          month: currentMonth,
+        }),
       });
 
       setWeight("");
@@ -74,7 +73,7 @@ function Progress() {
 
   const handleDelete = async (id) => {
     if (!confirm("Delete this photo?")) return;
-    await supabase.from("progress_photos").delete().eq("id", id);
+    await apiFetch(`/api/members/me/photos/${id}`, { method: "DELETE" });
     fetchPhotos();
   };
 
