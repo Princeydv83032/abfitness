@@ -145,6 +145,47 @@ router.post('/me/streak/increment', verifyMember, async (req, res) => {
   res.json({ success: true, streak: updated, badge: getBadge(newCurrent) })
 })
 
+// Apni progress photos dekhna
+router.get('/me/photos', verifyMember, async (req, res) => {
+  const { data, error } = await supabase
+    .from('progress_photos')
+    .select('*')
+    .eq('member_id', req.member.id)
+    .order('created_at', { ascending: false })
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true, photos: data })
+})
+
+router.post('/me/photos', verifyMember, async (req, res) => {
+  const { photo_url, weight, notes, month } = req.body
+  if (!photo_url) return res.status(400).json({ success: false, message: 'photo_url required' })
+
+  const { error } = await supabase.from('progress_photos').insert({
+    member_id: req.member.id,
+    photo_url,
+    weight: weight ? parseFloat(weight) : null,
+    notes: notes || null,
+    month: month || null,
+  })
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true })
+})
+
+// .eq('member_id', ...) bhi lagaya hai - sirf apni hi photo delete kar
+// sake, kisi aur member ki id guess karke nahi
+router.delete('/me/photos/:id', verifyMember, async (req, res) => {
+  const { error } = await supabase
+    .from('progress_photos')
+    .delete()
+    .eq('id', req.params.id)
+    .eq('member_id', req.member.id)
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true })
+})
+
 // ═══════════════════════════════════════════════════════════
 // Registration / pre-account routes — abhi koi members row exist nahi
 // karti, isliye verifyMember use nahi ho sakta, sirf token verify hota hai
