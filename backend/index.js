@@ -35,6 +35,7 @@ app.use(express.json());
 app.use("/api/auth", require("./routes/auth"));
 app.use('/api/payment', require('./routes/payment'))
 app.use("/api/members", require("./routes/members"));
+app.use("/api/owner", require("./routes/owner"));
 app.use("/api/notifications", require("./routes/notifications").router);
 
 // Health check

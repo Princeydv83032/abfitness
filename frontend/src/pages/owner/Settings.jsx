@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 function Settings() {
@@ -34,13 +34,12 @@ function Settings() {
     newMemberAlert: false,
   });
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
   const fetchSettings = async () => {
     setLoading(true);
-    const { data } = await supabase.from("owner").select("*").single();
+    // owner table RLS-locked hai - verifyOwner middleware token se row match
+    // karke deta hai
+    const res = await apiFetch("/api/owner/me");
+    const data = res.success ? res.owner : null;
 
     if (data) {
       setGymName(data.gym_name || "");
@@ -56,6 +55,10 @@ function Settings() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    queueMicrotask(fetchSettings);
+  }, []);
 
   const handleQRUpload = async (e) => {
     const file = e.target.files[0];
@@ -84,10 +87,10 @@ function Settings() {
 
       setQrUrl(data.secure_url);
 
-      await supabase
-        .from("owner")
-        .update({ upi_qr_url: data.secure_url })
-        .eq("gym_name", gymName);
+      await apiFetch("/api/owner/me", {
+        method: "PATCH",
+        body: JSON.stringify({ upi_qr_url: data.secure_url }),
+      });
 
       alert("✅ QR Code uploaded!");
     } catch (err) {
@@ -123,9 +126,9 @@ function Settings() {
     setSaving(true);
     setSuccess(false);
 
-    const { error } = await supabase
-      .from("owner")
-      .update({
+    const res = await apiFetch("/api/owner/me", {
+      method: "PATCH",
+      body: JSON.stringify({
         gym_name: gymName,
         timing: timing,
         upi_id: upiId,
@@ -133,14 +136,14 @@ function Settings() {
         gym_lng: gymLng || null,
         geo_radius: geoRadius || 100,
         settings: { fees, notifications },
-      })
-      .eq("gym_name", gymName);
+      }),
+    });
 
-    if (!error) {
+    if (res.success) {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } else {
-      alert("Save failed: " + error.message);
+      alert("Save failed: " + (res.error || res.message || "Unknown error"));
     }
     setSaving(false);
   };

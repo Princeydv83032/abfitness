@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { apiFetch } from '../lib/api'
 
 export function usePrices() {
   const [prices,  setPrices]  = useState({
@@ -9,21 +9,19 @@ export function usePrices() {
   })
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchPrices()
-  }, [])
-
   const fetchPrices = async () => {
-    const { data } = await supabase
-      .from('owner')
-      .select('settings')
-      .single()
+    // owner table RLS-locked hai - sirf fees (poori settings nahi)
+    const res = await apiFetch('/api/owner/fees')
 
-    if (data?.settings?.fees) {
-      setPrices(data.settings.fees)
+    if (res.success && res.fees) {
+      setPrices(res.fees)
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    queueMicrotask(fetchPrices)
+  }, [])
 
   return { prices, loading }
 }
