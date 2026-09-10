@@ -2,12 +2,14 @@ require("dotenv").config();
 const router = require("express").Router();
 const axios = require("axios");
 const { authLimiter } = require("../middleware/rateLimit");
+const { validate } = require("../middleware/validate");
+const { sendOtp, verifyOtp } = require("../validators/auth");
 
 const otpStore = new Map();
 
 // verify-otp par strict limiter zaroori hai - OTP sirf 4-digit hai (1000-
 // 9999), bina rate limit ke brute-force trivial hota
-router.post("/send-otp", authLimiter, async (req, res) => {
+router.post("/send-otp", authLimiter, validate(sendOtp), async (req, res) => {
   const { phone } = req.body;
 
   if (!phone || phone.length !== 10) {
@@ -46,7 +48,7 @@ router.post("/send-otp", authLimiter, async (req, res) => {
   }
 });
 
-router.post("/verify-otp", authLimiter, (req, res) => {
+router.post("/verify-otp", authLimiter, validate(verifyOtp), (req, res) => {
   const { phone, otp } = req.body;
 
   if (!phone || !otp) {

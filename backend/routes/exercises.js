@@ -1,6 +1,8 @@
 const router = require('express').Router()
 const { createClient } = require('@supabase/supabase-js')
 const { verifyMember, verifyOwner } = require('../middleware/auth')
+const { validate } = require('../middleware/validate')
+const { addExercise } = require('../validators/exercises')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -53,7 +55,7 @@ router.get('/videos', verifyOwner, async (req, res) => {
   res.json({ success: true, videos: data })
 })
 
-router.post('/', verifyOwner, async (req, res) => {
+router.post('/', verifyOwner, validate(addExercise), async (req, res) => {
   const { name, muscle_group, day, sets, reps, tip, video_url, thumbnail_url } = req.body
 
   if (!name || !day) {

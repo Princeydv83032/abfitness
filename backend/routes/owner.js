@@ -2,6 +2,8 @@ const router = require('express').Router()
 const { createClient } = require('@supabase/supabase-js')
 const { verifyFirebaseToken, verifyMember, verifyOwner } = require('../middleware/auth')
 const { authLimiter } = require('../middleware/rateLimit')
+const { validate } = require('../middleware/validate')
+const { checkPhone, updateMe } = require('../validators/owner')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -14,7 +16,7 @@ const supabase = createClient(
 // gym config (upi_id, coordinates, fees settings) kisi bhi anon ko de
 // deti thi sirf phone number daal ke
 // ═══════════════════════════════════════════════════════════
-router.post('/check-phone', authLimiter, async (req, res) => {
+router.post('/check-phone', authLimiter, validate(checkPhone), async (req, res) => {
   const { phone } = req.body
   if (!phone) return res.status(400).json({ success: false, message: 'Phone required' })
 
@@ -42,7 +44,7 @@ const OWNER_UPDATABLE_FIELDS = [
   'gym_lat', 'gym_lng', 'geo_radius', 'settings',
 ]
 
-router.patch('/me', verifyOwner, async (req, res) => {
+router.patch('/me', verifyOwner, validate(updateMe), async (req, res) => {
   const updates = {}
   for (const key of OWNER_UPDATABLE_FIELDS) {
     if (key in req.body) updates[key] = req.body[key]

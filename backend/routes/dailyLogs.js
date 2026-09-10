@@ -1,6 +1,8 @@
 const router = require('express').Router()
 const { createClient } = require('@supabase/supabase-js')
 const { verifyMember } = require('../middleware/auth')
+const { validate } = require('../middleware/validate')
+const { water, supplements, calories } = require('../validators/dailyLogs')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -27,7 +29,7 @@ router.get('/water', verifyMember, async (req, res) => {
   res.json({ success: true, log: data })
 })
 
-router.post('/water', verifyMember, async (req, res) => {
+router.post('/water', verifyMember, validate(water), async (req, res) => {
   const { date, glasses, goal } = req.body
   if (!date || glasses == null || goal == null) {
     return res.status(400).json({ success: false, message: 'date, glasses, goal required' })
@@ -56,7 +58,7 @@ router.get('/supplements', verifyMember, async (req, res) => {
   res.json({ success: true, log: data })
 })
 
-router.post('/supplements', verifyMember, async (req, res) => {
+router.post('/supplements', verifyMember, validate(supplements), async (req, res) => {
   const { date, supplements } = req.body
   if (!date || !supplements) {
     return res.status(400).json({ success: false, message: 'date, supplements required' })
@@ -85,7 +87,7 @@ router.get('/calories', verifyMember, async (req, res) => {
   res.json({ success: true, log: data })
 })
 
-router.post('/calories', verifyMember, async (req, res) => {
+router.post('/calories', verifyMember, validate(calories), async (req, res) => {
   const { date, meals, goal_cal } = req.body
   if (!date || !Array.isArray(meals)) {
     return res.status(400).json({ success: false, message: 'date, meals required' })

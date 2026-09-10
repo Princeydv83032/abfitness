@@ -2,6 +2,14 @@ const router = require('express').Router()
 const { createClient } = require('@supabase/supabase-js')
 const { verifyFirebaseToken, verifyMember, verifyOwner } = require('../middleware/auth')
 const { authLimiter } = require('../middleware/rateLimit')
+const { validate } = require('../middleware/validate')
+const {
+  updateMe: updateMeSchema,
+  fcmToken,
+  addPhoto,
+  register: registerSchema,
+  ownerUpdateMember,
+} = require('../validators/members')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -22,7 +30,7 @@ router.get('/me', verifyMember, async (req, res) => {
 // cheezein sirf owner-side routes se hi badalti hain
 const SELF_UPDATABLE_FIELDS = ['name', 'goal', 'profile_photo', 'notification_prefs', 'is_veg', 'custom_diet']
 
-router.patch('/me', verifyMember, async (req, res) => {
+router.patch('/me', verifyMember, validate(updateMeSchema), async (req, res) => {
   const updates = {}
   for (const key of SELF_UPDATABLE_FIELDS) {
     if (key in req.body) updates[key] = req.body[key]
@@ -61,7 +69,7 @@ router.delete('/me', verifyMember, async (req, res) => {
 
 // Push notification token save karo - fcm_tokens table RLS-locked hai,
 // req.member.id se save hota hai (client body ka memberId trust nahi karte)
-router.post('/me/fcm-token', verifyMember, async (req, res) => {
+router.post('/me/fcm-token', verifyMember, validate(fcmToken), async (req, res) => {
   const { token } = req.body
   if (!token) return res.status(400).json({ success: false, message: 'Token required' })
 
@@ -158,7 +166,7 @@ router.get('/me/photos', verifyMember, async (req, res) => {
   res.json({ success: true, photos: data })
 })
 
-router.post('/me/photos', verifyMember, async (req, res) => {
+router.post('/me/photos', verifyMember, validate(addPhoto), async (req, res) => {
   const { photo_url, weight, notes, month } = req.body
   if (!photo_url) return res.status(400).json({ success: false, message: 'photo_url required' })
 
@@ -221,7 +229,7 @@ router.get('/lookup', authLimiter, verifyFirebaseToken, async (req, res) => {
 })
 
 // Naya registration
-router.post('/register', authLimiter, verifyFirebaseToken, async (req, res) => {
+router.post('/register', authLimiter, verifyFirebaseToken, validate(registerSchema), async (req, res) => {
   const { name, phone, age, goal, profilePhoto } = req.body
   const { uid, email } = req.firebaseUser
 
@@ -379,7 +387,7 @@ router.get('/:id', verifyOwner, async (req, res) => {
 
 const OWNER_UPDATABLE_FIELDS = ['name', 'phone', 'plan', 'status', 'joined_at', 'expires_at']
 
-router.patch('/:id', verifyOwner, async (req, res) => {
+router.patch('/:id', verifyOwner, validate(ownerUpdateMember), async (req, res) => {
   const updates = {}
   for (const key of OWNER_UPDATABLE_FIELDS) {
     if (key in req.body) updates[key] = req.body[key]
