@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
 import BadgePopup from "../../components/BadgePopup";
@@ -33,10 +34,6 @@ function Attendance() {
   const month = new Date().toISOString().slice(0, 7);
 
   useEffect(() => {
-    if (user?.id) fetchAttendance();
-  }, [user]);
-
-  useEffect(() => {
     if (badge) setShowBadge(true);
   }, [badge]);
 
@@ -57,6 +54,10 @@ function Attendance() {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (user?.id) queueMicrotask(fetchAttendance);
+  }, [user]);
 
   // const handleCheckIn = async () => {
   //   if (checkedToday) return;
@@ -162,11 +163,10 @@ function Attendance() {
     setCheckingIn(true);
 
     try {
-      // Step 1 — Gym location fetch karo
-      const { data: owner } = await supabase
-        .from("owner")
-        .select("gym_lat, gym_lng, geo_radius, gym_name")
-        .single();
+      // Step 1 — Gym location fetch karo - owner table RLS-locked hai,
+      // sirf ye 4 columns (poora row nahi)
+      const ownerRes = await apiFetch("/api/owner/geofence");
+      const owner = ownerRes.success ? ownerRes : null;
 
       // Step 2 — Gym location set hai?
       if (owner?.gym_lat && owner?.gym_lng) {

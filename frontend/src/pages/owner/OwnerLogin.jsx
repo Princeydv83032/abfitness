@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 function OwnerLogin() {
@@ -31,14 +31,15 @@ function OwnerLogin() {
     setError("");
 
     try {
-      // Pehle check karo ye owner ka number hai ya nahi
-      const { data: owner, error: ownerError } = await supabase
-        .from("owner")
-        .select("*")
-        .eq("phone", phone)
-        .single();
+      // Pehle check karo ye owner ka number hai ya nahi - owner table
+      // RLS-locked hai, aur ye route sirf boolean deta hai (poora gym
+      // config nahi, jo pehle yahan se leak ho raha tha)
+      const checkRes = await apiFetch("/api/owner/check-phone", {
+        method: "POST",
+        body: JSON.stringify({ phone }),
+      });
 
-      if (ownerError || !owner) {
+      if (!checkRes.success || !checkRes.exists) {
         setError("This number is not registered as owner.");
         setLoading(false);
         return;
@@ -73,12 +74,15 @@ function OwnerLogin() {
     try {
       await confirm.confirm(otp);
 
-      // Supabase se owner data fetch karo
-      const { data: owner } = await supabase
-        .from("owner")
-        .select("*")
-        .eq("phone", phone)
-        .single();
+      // Ab Firebase se verified ho chuke hain - backend token se phone
+      // match karke owner row deta hai
+      const ownerRes = await apiFetch("/api/owner/me");
+      if (!ownerRes.success) {
+        setError("Could not load owner account. Please try again.");
+        setLoading(false);
+        return;
+      }
+      const owner = ownerRes.owner;
 
       setOwner({
         name: owner.owner_name,
