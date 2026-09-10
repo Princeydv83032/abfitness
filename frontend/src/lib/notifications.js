@@ -1,5 +1,5 @@
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import { supabase } from "./supabase";
+import { apiFetch } from "./api";
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
@@ -42,30 +42,17 @@ export async function initNotifications(memberId) {
 
     console.log("FCM Token:", token);
 
-    // Token Supabase mein save karo
-    // Pehle same token ka purana record delete karo (same token → different
-    // member → ho sakta hai wahi device pehle kisi aur member se login tha)
-    const { error: deleteError } = await supabase
-      .from("fcm_tokens")
-      .delete()
-      .eq("token", token)
-      .neq("member_id", memberId);
+    // Token backend route se save karo - fcm_tokens table RLS-locked hai,
+    // member_id request ke Firebase token se derive hota hai, client se
+    // aaye memberId param par trust nahi karte (delete+upsert dono
+    // backend ke andar hote hain)
+    const saveRes = await apiFetch("/api/members/me/fcm-token", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
 
-    if (deleteError) {
-      console.log("FCM token delete error:", deleteError);
-    }
-
-    // Phir upsert karo
-    const { error: upsertError } = await supabase.from("fcm_tokens").upsert(
-      {
-        member_id: memberId,
-        token: token,
-      },
-      { onConflict: "member_id" },
-    );
-
-    if (upsertError) {
-      console.log("FCM token save error:", upsertError);
+    if (!saveRes.success) {
+      console.log("FCM token save error:", saveRes);
       return false;
     }
 

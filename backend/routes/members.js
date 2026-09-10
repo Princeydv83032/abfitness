@@ -58,6 +58,32 @@ router.delete('/me', verifyMember, async (req, res) => {
   res.json({ success: true })
 })
 
+// Push notification token save karo - fcm_tokens table RLS-locked hai,
+// req.member.id se save hota hai (client body ka memberId trust nahi karte)
+router.post('/me/fcm-token', verifyMember, async (req, res) => {
+  const { token } = req.body
+  if (!token) return res.status(400).json({ success: false, message: 'Token required' })
+
+  // Same token ka purana record delete karo - ho sakta hai wahi device
+  // pehle kisi aur member se login tha
+  const { error: deleteError } = await supabase
+    .from('fcm_tokens')
+    .delete()
+    .eq('token', token)
+    .neq('member_id', req.member.id)
+
+  if (deleteError) {
+    console.log('FCM token delete error:', deleteError.message)
+  }
+
+  const { error: upsertError } = await supabase
+    .from('fcm_tokens')
+    .upsert({ member_id: req.member.id, token }, { onConflict: 'member_id' })
+
+  if (upsertError) return res.status(500).json({ success: false, error: upsertError.message })
+  res.json({ success: true })
+})
+
 // ═══════════════════════════════════════════════════════════
 // Registration / pre-account routes — abhi koi members row exist nahi
 // karti, isliye verifyMember use nahi ho sakta, sirf token verify hota hai
