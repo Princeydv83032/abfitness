@@ -84,6 +84,67 @@ router.post('/me/fcm-token', verifyMember, async (req, res) => {
   res.json({ success: true })
 })
 
+// Apni streak dekhna
+router.get('/me/streak', verifyMember, async (req, res) => {
+  const { data, error } = await supabase
+    .from('streaks')
+    .select('*')
+    .eq('member_id', req.member.id)
+    .maybeSingle()
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true, streak: data })
+})
+
+const getBadge = (days) => {
+  if (days === 100) return { emoji: '🏆', title: 'Legend!', days: 100 }
+  if (days === 30) return { emoji: '💪', title: 'Month Master!', days: 30 }
+  if (days === 7) return { emoji: '🔥', title: 'Week Warrior!', days: 7 }
+  if (days === 3) return { emoji: '🥉', title: 'Beginner!', days: 3 }
+  return null
+}
+
+// Check-in ke baad call hota hai - current/longest client se nahi aate,
+// yahin calculate hote hain (warna raw upsert expose karne par member
+// khud apni streak arbitrarily bada sakta tha)
+router.post('/me/streak/increment', verifyMember, async (req, res) => {
+  const today = new Date().toISOString().split('T')[0]
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+
+  const { data: existing } = await supabase
+    .from('streaks')
+    .select('*')
+    .eq('member_id', req.member.id)
+    .maybeSingle()
+
+  if (existing?.last_date === today) {
+    return res.json({ success: true, streak: existing, badge: null })
+  }
+
+  let newCurrent = 1
+  if (existing?.last_date === yesterday) {
+    newCurrent = (existing.current || 0) + 1
+  }
+
+  let newLongest = existing?.longest || 0
+  if (newCurrent > newLongest) newLongest = newCurrent
+
+  const { data: updated, error } = await supabase
+    .from('streaks')
+    .upsert({
+      member_id: req.member.id,
+      current: newCurrent,
+      longest: newLongest,
+      last_date: today,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'member_id' })
+    .select()
+    .single()
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true, streak: updated, badge: getBadge(newCurrent) })
+})
+
 // ═══════════════════════════════════════════════════════════
 // Registration / pre-account routes — abhi koi members row exist nahi
 // karti, isliye verifyMember use nahi ho sakta, sirf token verify hota hai

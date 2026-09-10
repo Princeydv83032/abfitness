@@ -1,85 +1,38 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { apiFetch } from '../lib/api'
 
 export function useStreak(memberId) {
   const [streak,  setStreak]  = useState(null)
   const [loading, setLoading] = useState(true)
   const [badge,   setBadge]   = useState(null)
 
-  useEffect(() => {
-    if (memberId) fetchStreak()
-  }, [memberId])
-
   const fetchStreak = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('streaks')
-      .select('*')
-      .eq('member_id', memberId)
-      .single()
-
-    if (data) setStreak(data)
+    // streaks table RLS-locked hai - verifyMember token se req.member.id
+    // match karke deta hai
+    const res = await apiFetch('/api/members/me/streak')
+    if (res.success && res.streak) setStreak(res.streak)
     setLoading(false)
   }
 
+  useEffect(() => {
+    if (memberId) queueMicrotask(fetchStreak)
+  }, [memberId])
+
   const updateStreak = async () => {
-    const today     = new Date().toISOString().split('T')[0]
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    // current/longest ab yahan calculate nahi hote - backend khud karta
+    // hai (client par trust nahi karte), taaki koi apni streak seedhe
+    // arbitrarily set na kar sake
+    const res = await apiFetch('/api/members/me/streak/increment', {
+      method: 'POST',
+    })
 
-    // Existing streak fetch karo
-    const { data: existing } = await supabase
-      .from('streaks')
-      .select('*')
-      .eq('member_id', memberId)
-      .single()
+    if (!res.success) return streak
 
-    let newCurrent = 1
-    let newLongest = existing?.longest || 0
+    setStreak(res.streak)
+    if (res.badge) setBadge(res.badge)
 
-    if (existing) {
-      if (existing.last_date === today) {
-        // Aaj already update hua — kuch mat karo
-        return existing
-      } else if (existing.last_date === yesterday) {
-        // Kal bhi aaya tha — streak +1
-        newCurrent = (existing.current || 0) + 1
-      } else {
-        // Miss kiya — reset
-        newCurrent = 1
-      }
-    }
-
-    // Longest update karo
-    if (newCurrent > newLongest) newLongest = newCurrent
-
-    // Upsert karo
-    const { data: updated } = await supabase
-      .from('streaks')
-      .upsert({
-        member_id:  memberId,
-        current:    newCurrent,
-        longest:    newLongest,
-        last_date:  today,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'member_id' })
-      .select()
-      .single()
-
-    setStreak(updated)
-
-    // Badge check karo
-    const earnedBadge = getBadge(newCurrent)
-    if (earnedBadge) setBadge(earnedBadge)
-
-    return updated
-  }
-
-  const getBadge = (days) => {
-    if (days === 100) return { emoji: '🏆', title: 'Legend!',       days: 100 }
-    if (days === 30)  return { emoji: '💪', title: 'Month Master!', days: 30  }
-    if (days === 7)   return { emoji: '🔥', title: 'Week Warrior!', days: 7   }
-    if (days === 3)   return { emoji: '🥉', title: 'Beginner!',     days: 3   }
-    return null
+    return res.streak
   }
 
   const getStreakEmoji = (days) => {
