@@ -71,4 +71,37 @@ router.post('/supplements', verifyMember, async (req, res) => {
   res.json({ success: true })
 })
 
+router.get('/calories', verifyMember, async (req, res) => {
+  const date = req.query.date || new Date().toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from('calorie_logs')
+    .select('*')
+    .eq('member_id', req.member.id)
+    .eq('date', date)
+    .maybeSingle()
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true, log: data })
+})
+
+router.post('/calories', verifyMember, async (req, res) => {
+  const { date, meals, goal_cal } = req.body
+  if (!date || !Array.isArray(meals)) {
+    return res.status(400).json({ success: false, message: 'date, meals required' })
+  }
+
+  // total_cal client se nahi lete - meals array se yahin recalculate
+  // karte hain
+  const total_cal = meals.reduce((s, m) => s + (m.cal || 0) * (m.quantity || 1), 0)
+
+  const { error } = await supabase.from('calorie_logs').upsert(
+    { member_id: req.member.id, date, meals, total_cal, goal_cal: goal_cal || 2000 },
+    { onConflict: 'member_id,date' },
+  )
+
+  if (error) return res.status(500).json({ success: false, error: error.message })
+  res.json({ success: true })
+})
+
 module.exports = router

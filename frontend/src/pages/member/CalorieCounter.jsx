@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
+import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
 const indianFoods = [
@@ -374,38 +374,28 @@ function CalorieCounter() {
   const percentage = Math.min(100, Math.round((totalCal / goalCal) * 100));
   const remaining = Math.max(0, goalCal - totalCal);
 
-  useEffect(() => {
-    if (user?.id) fetchLog();
-  }, [user]);
-
   const fetchLog = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("calorie_logs")
-      .select("*")
-      .eq("member_id", user.id)
-      .eq("date", today)
-      .maybeSingle();
-
-    if (data) {
-      setAddedMeals(data.meals || []);
-      setGoalCal(data.goal_cal || 2000);
+    // calorie_logs table RLS-locked hai - verifyMember token se
+    // req.member.id match karke deta hai
+    const res = await apiFetch(`/api/logs/calories?date=${today}`);
+    if (res.success && res.log) {
+      setAddedMeals(res.log.meals || []);
+      setGoalCal(res.log.goal_cal || 2000);
     }
     setLoading(false);
   };
 
+  useEffect(() => {
+    if (user?.id) queueMicrotask(fetchLog);
+  }, [user]);
+
   const saveLog = async (meals) => {
     setSaving(true);
-    await supabase.from("calorie_logs").upsert(
-      {
-        member_id: user.id,
-        date: today,
-        meals,
-        total_cal: meals.reduce((s, m) => s + m.cal * (m.quantity || 1), 0),
-        goal_cal: goalCal,
-      },
-      { onConflict: "member_id,date" },
-    );
+    await apiFetch("/api/logs/calories", {
+      method: "POST",
+      body: JSON.stringify({ date: today, meals, goal_cal: goalCal }),
+    });
     setSaving(false);
   };
 
