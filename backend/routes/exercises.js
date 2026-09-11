@@ -17,11 +17,12 @@ const supabase = createClient(
 // Member reads
 // ═══════════════════════════════════════════════════════════
 
-// Home.jsx ka weekly slider card - har din ka thumbnail + count
+// Home.jsx ka weekly carousel - har din ka thumbnail + video (looping
+// "gif" jaisa dikhane ke liye) + count
 router.get('/week', verifyMember, async (req, res) => {
   const { data, error } = await supabase
     .from('exercises')
-    .select('day, thumbnail_url')
+    .select('day, thumbnail_url, video_url')
     .order('order_index')
 
   if (error) return res.status(500).json({ success: false, error: error.message })
