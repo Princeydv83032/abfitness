@@ -190,19 +190,20 @@ if (initFirebaseAdmin()) {
 const sendNotification = async (token, title, body) => {
   if (!messaging) return false;
   try {
+    // Data-only payload - "notification"/"webpush.notification" field
+    // jaan-boojh kar nahi bhejte. Agar wo hota, to browser khud bhi
+    // notification auto-display kar deta AUR humara SW ka
+    // onBackgroundMessage bhi manually showNotification() call karta -
+    // dono milke duplicate notification dikhate the. Data-only bhejne se
+    // sirf humara SW code hi ek baar dikhata hai
     await messaging.send({
       token,
-      notification: { title, body },
-      webpush: {
-        notification: {
-          title,
-          body,
-          icon: "https://abfitness.devplex.in/icon-192.png",
-          badge: "https://abfitness.devplex.in/notification-icon.png",
-        },
-        fcmOptions: {
-          link: "https://abfitness.devplex.in",
-        },
+      data: {
+        title,
+        body,
+        icon: "https://abfitness.devplex.in/icon-192.png",
+        badge: "https://abfitness.devplex.in/notification-icon.png",
+        link: "https://abfitness.devplex.in",
       },
     });
     return true;
