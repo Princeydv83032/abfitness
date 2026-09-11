@@ -67,20 +67,22 @@ export async function initNotifications(memberId) {
       body: JSON.stringify({ memberId }),
     }).catch((err) => console.log("Welcome notify error:", err));
 
-    // Foreground notifications handle karo
+    // Foreground notifications handle karo - backend data-only payload
+    // bhejta hai (payload.notification nahi, payload.data), warna browser
+    // aur humara showNotification() dono milke duplicate dikha dete the
     onMessage(messaging, (payload) => {
       console.log("Foreground message:", payload);
 
       // Foreground mein bhi notification show karo
       if (Notification.permission === "granted") {
-        const { title, body, icon } = payload.notification;
+        const { title, body, icon, badge, link } = payload.data || {};
         navigator.serviceWorker.ready.then((registration) => {
           registration.showNotification(title, {
             body,
             icon: icon || "/icon-192.png",
-            badge: "/notification-icon.png",
+            badge: badge || "/notification-icon.png",
             vibrate: [200, 100, 200],
-            data: payload.fcmOptions,
+            data: { link },
           });
         });
       }
