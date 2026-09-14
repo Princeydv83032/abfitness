@@ -54,7 +54,7 @@ const todayName = DAYS[todayIndex === 0 ? 6 : todayIndex - 1];
 function HomeSkeleton() {
   const pulse = "bg-white/5 animate-pulse rounded-xl";
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-24">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-20">
       <div className="flex justify-between items-center mb-4">
         <div className="space-y-2">
           <div className={`h-3 w-20 ${pulse}`} />
@@ -95,7 +95,9 @@ function Home() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [weekPlan, setWeekPlan] = useState({});
-  const [showPhoto, setShowPhoto] = useState(false);
+  // WhatsApp jaisa 2-stage preview: pehle tap se "medium" circle, usko tap
+  // karne se "full" size photo
+  const [photoView, setPhotoView] = useState(null); // null | "medium" | "full"
   const [showNotifs, setShowNotifs] = useState(false);
 
   const getGreeting = () => {
@@ -187,7 +189,7 @@ function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-24">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-20">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div>
@@ -206,7 +208,7 @@ function Home() {
             <FiBell size={19} />
           </button>
           <button
-            onClick={() => setShowPhoto(true)}
+            onClick={() => setPhotoView("medium")}
             className="flex-shrink-0 active:scale-95 transition-transform"
           >
             {data?.profile_photo ? (
@@ -224,14 +226,49 @@ function Home() {
         </div>
       </div>
 
-      {/* Profile Photo Preview */}
-      {showPhoto && (
+      {/* Profile Photo Preview — Stage 1: medium circle (WhatsApp jaisa),
+      isi ko tap karne se stage 2 (full size) khulta hai */}
+      {photoView === "medium" && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6"
-          onClick={() => setShowPhoto(false)}
+          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6"
+          onClick={() => setPhotoView(null)}
         >
           <button
-            onClick={() => setShowPhoto(false)}
+            onClick={() => setPhotoView(null)}
+            className="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white"
+          >
+            <FiX size={18} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setPhotoView("full");
+            }}
+            className="active:scale-95 transition-transform"
+          >
+            {data?.profile_photo ? (
+              <img
+                src={data.profile_photo}
+                alt="Profile"
+                className="w-56 h-56 rounded-full object-cover border-4 border-violet-500 shadow-2xl"
+              />
+            ) : (
+              <div className="w-56 h-56 rounded-full bg-violet-600 flex items-center justify-center text-white font-extrabold text-7xl border-4 border-violet-400 shadow-2xl">
+                {(data?.name || "M")[0]}
+              </div>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Stage 2: full size */}
+      {photoView === "full" && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-6"
+          onClick={() => setPhotoView(null)}
+        >
+          <button
+            onClick={() => setPhotoView(null)}
             className="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white"
           >
             <FiX size={18} />
@@ -240,7 +277,7 @@ function Home() {
             <img
               src={data.profile_photo}
               alt="Profile"
-              className="max-w-full max-h-[70vh] rounded-2xl object-contain"
+              className="max-w-full max-h-[80vh] rounded-2xl object-contain"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (

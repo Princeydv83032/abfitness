@@ -549,7 +549,7 @@
 //   }
 
 //   return (
-//     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
+//     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
 //       {/* Header */}
 //       <h1 className="text-2xl font-black text-white mb-1">Diet Plan 🥗</h1>
 //       <p className="text-slate-400 text-sm mb-4">
@@ -1302,7 +1302,7 @@ function Diet() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
       {/* Header */}
       <h1 className="text-2xl font-black text-white mb-1">Diet Plan 🥗</h1>
 

@@ -11,7 +11,7 @@ function DietOverall() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
       <div className="flex items-center gap-3 mb-5">
         <button
           onClick={() => navigate(-1)}

@@ -118,7 +118,7 @@ function Attendance() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
       {/* Badge Popup */}
       {showBadge && badge && (
         <BadgePopup badge={badge} onClose={() => setShowBadge(false)} />
