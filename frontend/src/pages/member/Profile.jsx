@@ -3,7 +3,25 @@ import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { toast } from "../../lib/toast";
-import { FiEdit2, FiX, FiCamera, FiSave, FiLogOut } from "react-icons/fi";
+import {
+  FiEdit2,
+  FiX,
+  FiCamera,
+  FiSave,
+  FiLogOut,
+  FiMail,
+  FiPhone,
+  FiTag,
+  FiCalendar,
+  FiChevronDown,
+  FiChevronRight,
+} from "react-icons/fi";
+import {
+  IoCheckmarkCircle,
+  IoAlertCircleOutline,
+  IoNotificationsOutline,
+  IoTimeOutline,
+} from "react-icons/io5";
 
 const DAYS = [
   "Monday",
@@ -24,6 +42,24 @@ const DAY_SHORT = {
   Sunday: "Sun",
 };
 
+// Data fetch hone tak asli layout ke shape ka skeleton
+function ProfileSkeleton() {
+  const pulse = "bg-white/5 animate-pulse rounded-xl";
+  return (
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-20">
+      <div className="flex justify-between items-center mb-5">
+        <div className={`h-7 w-32 ${pulse}`} />
+        <div className={`h-9 w-16 ${pulse}`} />
+      </div>
+      <div className={`h-20 mb-4 rounded-2xl ${pulse}`} />
+      <div className={`h-6 w-32 mb-2 ${pulse}`} />
+      <div className={`h-36 mb-4 rounded-2xl ${pulse}`} />
+      <div className={`h-6 w-44 mb-4 ${pulse}`} />
+      <div className={`h-12 rounded-xl ${pulse}`} />
+    </div>
+  );
+}
+
 function Profile() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -36,6 +72,7 @@ function Profile() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
+  const [showNotifPrefs, setShowNotifPrefs] = useState(false);
 
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
@@ -162,21 +199,21 @@ function Profile() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
+  const isActive = member?.status === "active";
+
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-20">
       {/* Header */}
-      <div className="flex justify-between items-center mb-5">
-        <h1 className="text-2xl font-black text-white">My Profile</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-extrabold text-white tracking-tight">
+          My Profile
+        </h1>
         <button
           onClick={() => setEditing(!editing)}
-          className="bg-[#1a1a2e] border border-white/10 text-purple-400 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5"
+          className="bg-[#1a1a2e] border border-white/7 text-violet-400 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5"
         >
           {editing ? (
             <>
@@ -190,18 +227,52 @@ function Profile() {
         </button>
       </div>
 
-      {/* Profile Hero */}
-      <div className="bg-[#1a1a2e] border border-purple-500/30 rounded-2xl p-4 flex flex-col items-center mb-5">
+      {/* Profile Hero — horizontal layout, compact. Text left, photo right */}
+      <div className="rounded-2xl p-4 mb-4 bg-gradient-to-br from-violet-700 via-violet-600 to-indigo-700 border border-violet-400/20 flex items-center gap-3.5">
+        <div className="flex-1 min-w-0">
+          {editing ? (
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-black/20 border border-white/20 rounded-lg px-3 py-1.5 text-white font-extrabold text-base outline-none w-full"
+            />
+          ) : (
+            <h2 className="text-white font-extrabold text-lg truncate">
+              {member?.name}
+            </h2>
+          )}
+          <p className="text-white/60 text-xs mt-0.5">{member?.member_id}</p>
+          <span
+            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mt-1.5 ${
+              isActive
+                ? "bg-emerald-500/20 text-emerald-300"
+                : "bg-red-500/20 text-red-300"
+            }`}
+          >
+            {isActive ? (
+              <IoCheckmarkCircle size={11} />
+            ) : (
+              <IoAlertCircleOutline size={11} />
+            )}
+            {isActive ? "Active Member" : "Expired"}
+          </span>
+          {uploading && (
+            <p className="text-white/70 text-[10px] mt-1">
+              Uploading photo...
+            </p>
+          )}
+        </div>
+
         {/* Photo */}
-        <div className="relative mb-3">
+        <div className="relative flex-shrink-0">
           {photo ? (
             <img
               src={photo}
               alt="Profile"
-              className="w-20 h-20 rounded-full object-cover border-4 border-purple-500"
+              className="w-16 h-16 rounded-full object-cover border-2 border-white/20"
             />
           ) : (
-            <div className="w-20 h-20 rounded-full bg-purple-600 flex items-center justify-center text-white text-3xl font-black border-4 border-purple-500">
+            <div className="w-16 h-16 rounded-full bg-white/15 flex items-center justify-center text-white text-2xl font-extrabold border-2 border-white/20">
               {member?.name?.[0] || "M"}
             </div>
           )}
@@ -209,9 +280,9 @@ function Profile() {
           {editing && (
             <label
               htmlFor="profile-photo"
-              className="absolute bottom-0 right-0 w-7 h-7 bg-purple-600 rounded-full flex items-center justify-center cursor-pointer border-2 border-[#0d0d14]"
+              className="absolute bottom-0 right-0 w-6 h-6 bg-white text-violet-700 rounded-full flex items-center justify-center cursor-pointer border-2 border-violet-600"
             >
-              <FiCamera size={12} className="text-white" />
+              <FiCamera size={11} />
             </label>
           )}
           <input
@@ -222,37 +293,12 @@ function Profile() {
             className="hidden"
           />
         </div>
-
-        {editing ? (
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="bg-[#0d0d14] border border-white/10 rounded-xl px-4 py-2 text-white text-center font-black text-lg outline-none w-full"
-          />
-        ) : (
-          <h2 className="text-white font-black text-xl">{member?.name}</h2>
-        )}
-
-        <p className="text-slate-400 text-xs mt-1">{member?.member_id}</p>
-        <span
-          className={`text-xs font-bold px-2 py-0.5 rounded-full mt-2 ${
-            member?.status === "active"
-              ? "bg-green-500/20 text-green-400"
-              : "bg-red-500/20 text-red-400"
-          }`}
-        >
-          {member?.status === "active" ? "✓ Active" : "⚠️ Expired"}
-        </span>
-
-        {uploading && (
-          <p className="text-purple-400 text-xs mt-2">⏳ Uploading photo...</p>
-        )}
       </div>
 
       {/* Goal Edit */}
       {editing && (
         <div className="mb-4">
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-2">
             Your Goal
           </p>
           <div className="flex flex-wrap gap-2">
@@ -260,12 +306,11 @@ function Profile() {
               <button
                 key={g}
                 onClick={() => setGoal(g)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all
-                  ${
-                    goal === g
-                      ? "bg-purple-600 border-purple-600 text-white"
-                      : "bg-[#1a1a2e] border-white/10 text-slate-400"
-                  }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                  goal === g
+                    ? "bg-violet-600 text-white"
+                    : "bg-[#1a1a2e] border border-white/7 text-slate-400"
+                }`}
               >
                 {g}
               </button>
@@ -274,43 +319,60 @@ function Profile() {
         </div>
       )}
 
-      {/* Info */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-        Membership Info
-      </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl mb-4">
+      {/* Membership Info */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 flex-shrink-0">
+          <FiTag size={15} />
+        </div>
+        <p className="text-white font-extrabold text-sm">Membership Info</p>
+      </div>
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-2xl mb-4">
         {[
-          { label: "Phone", value: member?.phone },
+          { icon: FiMail, label: "Email", value: member?.email || "--" },
+          { icon: FiPhone, label: "Phone", value: member?.phone || "--" },
           {
+            icon: FiTag,
             label: "Plan",
-            value:
-              member?.plan?.charAt(0).toUpperCase() + member?.plan?.slice(1),
+            value: member?.plan
+              ? member.plan.charAt(0).toUpperCase() + member.plan.slice(1)
+              : "--",
           },
-          { label: "Goal", value: goal || member?.goal || "--" },
           {
+            icon: FiCalendar,
             label: "Joined",
-            value: new Date(member?.joined_at).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
+            value: member?.joined_at
+              ? new Date(member.joined_at).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "--",
           },
           {
+            icon: IoTimeOutline,
             label: "Expires",
-            value: new Date(member?.expires_at).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
+            value: member?.expires_at
+              ? new Date(member.expires_at).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })
+              : "--",
           },
         ].map((row, i, arr) => (
           <div
             key={i}
-            className={`flex justify-between items-center px-4 py-3
-              ${i !== arr.length - 1 ? "border-b border-white/5" : ""}`}
+            className={`flex items-center gap-2.5 px-3.5 py-2.5 ${
+              i !== arr.length - 1 ? "border-b border-white/5" : ""
+            }`}
           >
-            <span className="text-slate-400 text-sm">{row.label}</span>
-            <span className="text-white text-sm font-semibold">
+            <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 flex-shrink-0">
+              <row.icon size={13} />
+            </div>
+            <span className="text-slate-400 text-xs flex-1">
+              {row.label}
+            </span>
+            <span className="text-white text-xs font-semibold text-right truncate max-w-[55%]">
               {row.value}
             </span>
           </div>
@@ -322,21 +384,45 @@ function Profile() {
         <button
           onClick={handleSave}
           disabled={saving || uploading}
-          className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm mb-3 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full bg-violet-600 text-white font-extrabold py-3 rounded-xl text-sm mb-4 disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
         >
           <FiSave size={14} /> {saving ? "Saving..." : "Save Changes"}
         </button>
       )}
 
-      {/* Notification Preferences */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-        Notification Preferences
-      </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl p-4 mb-4">
-        <p className="text-slate-500 text-xs mb-3">
-          Sirf tumhari batayi routine ke hisaab se reminder milega — jab tak
-          set nahi karoge, workout/supplement wale personal reminder nahi
-          jaayenge.
+      {/* Notification Preferences — collapsed by default (sabse bada
+      section tha, page ko unnecessarily lamba kar raha tha) */}
+      <button
+        onClick={() => setShowNotifPrefs(!showNotifPrefs)}
+        className="w-full flex items-center justify-between gap-2 mb-2"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 flex-shrink-0">
+            <IoNotificationsOutline size={15} />
+          </div>
+          <p className="text-white font-extrabold text-sm">
+            Notification Preferences
+          </p>
+        </div>
+        {showNotifPrefs ? (
+          <FiChevronDown size={16} className="text-slate-500" />
+        ) : (
+          <FiChevronRight size={16} className="text-slate-500" />
+        )}
+      </button>
+
+      {!showNotifPrefs && (
+        <p className="text-slate-600 text-xs mb-4 -mt-1">
+          Tap to set your gym days, workout time, and reminder preferences.
+        </p>
+      )}
+
+      {showNotifPrefs && (
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-2xl p-3.5 mb-4">
+        <p className="text-slate-500 text-xs mb-3.5 leading-snug">
+          You'll only get reminders based on the routine you set below —
+          until you set this, personal workout/supplement reminders won't be
+          sent.
         </p>
 
         {/* Gym Days */}
@@ -346,12 +432,11 @@ function Profile() {
             <button
               key={day}
               onClick={() => toggleGymDay(day)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all
-                ${
-                  gymDays.includes(day)
-                    ? "bg-purple-600 border-purple-600 text-white"
-                    : "bg-[#0d0d14] border-white/10 text-slate-400"
-                }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                gymDays.includes(day)
+                  ? "bg-violet-600 text-white"
+                  : "bg-white/5 text-slate-400"
+              }`}
             >
               {DAY_SHORT[day]}
             </button>
@@ -359,7 +444,7 @@ function Profile() {
         </div>
 
         {/* Workout + Sleep Time — dono fixed, roz badalne wale nahi hain */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-3 mb-1.5">
           <div>
             <p className="text-white text-sm font-bold mb-2">
               Workout Time
@@ -369,7 +454,7 @@ function Profile() {
               step="900"
               value={workoutTime}
               onChange={(e) => setWorkoutTime(e.target.value)}
-              className="bg-[#0d0d14] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none w-full"
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none w-full"
             />
           </div>
           <div>
@@ -379,14 +464,14 @@ function Profile() {
               step="900"
               value={sleepTime}
               onChange={(e) => setSleepTime(e.target.value)}
-              className="bg-[#0d0d14] border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none w-full"
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none w-full"
             />
           </div>
         </div>
-        <p className="text-slate-500 text-[10px] -mt-3 mb-4">
-          Workout reminder sirf tumhare chuni gym-days pe jayega. Sleep
-          reminder daily usi time pe jayega (roz alag set karne ki
-          zaroorat nahi).
+        <p className="text-slate-600 text-[10px] mt-2 mb-4 leading-snug">
+          Workout reminders go out only on your selected gym days. Sleep
+          reminders go out daily at this time — no need to set it again
+          each day.
         </p>
 
         {/* Supplements */}
@@ -394,12 +479,14 @@ function Profile() {
           <p className="text-white text-sm font-bold">Take Supplements?</p>
           <button
             onClick={() => setTakesSupplements(!takesSupplements)}
-            className={`w-11 h-6 rounded-full transition-all relative flex-shrink-0
-              ${takesSupplements ? "bg-purple-600" : "bg-white/10"}`}
+            className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${
+              takesSupplements ? "bg-violet-600" : "bg-white/10"
+            }`}
           >
             <span
-              className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all
-                ${takesSupplements ? "left-[22px]" : "left-0.5"}`}
+              className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all ${
+                takesSupplements ? "left-[22px]" : "left-0.5"
+              }`}
             />
           </button>
         </div>
@@ -414,7 +501,7 @@ function Profile() {
               step="900"
               value={supplementTime}
               onChange={(e) => setSupplementTime(e.target.value)}
-              className="bg-[#0d0d14] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none w-full"
+              className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none w-full"
             />
           </div>
         )}
@@ -422,11 +509,12 @@ function Profile() {
         <button
           onClick={handleSavePrefs}
           disabled={savingPrefs}
-          className="w-full bg-purple-600/20 border border-purple-500/30 text-purple-400 font-bold py-2.5 rounded-xl text-sm disabled:opacity-50"
+          className="w-full bg-violet-500/15 border border-violet-500/25 text-violet-400 font-bold py-2.5 rounded-xl text-sm disabled:opacity-50"
         >
           {savingPrefs ? "Saving..." : "Save Preferences"}
         </button>
       </div>
+      )}
 
       {/* Logout */}
       <button
