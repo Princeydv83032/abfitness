@@ -166,9 +166,32 @@ router.get('/me/photos', verifyMember, async (req, res) => {
   res.json({ success: true, photos: data })
 })
 
+const MAX_PHOTOS_PER_MONTH = 5
+
 router.post('/me/photos', verifyMember, validate(addPhoto), async (req, res) => {
   const { photo_url, weight, notes, month } = req.body
   if (!photo_url) return res.status(400).json({ success: false, message: 'photo_url required' })
+
+  // Is calendar month mein ab tak kitni photos upload ho chuki hain - max
+  // 5/month, sirf frontend check se enforce karte to koi anon insert se
+  // bypass kar sakta tha
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+
+  const { count, error: countError } = await supabase
+    .from('progress_photos')
+    .select('*', { count: 'exact', head: true })
+    .eq('member_id', req.member.id)
+    .gte('created_at', monthStart)
+
+  if (countError) return res.status(500).json({ success: false, error: countError.message })
+
+  if ((count || 0) >= MAX_PHOTOS_PER_MONTH) {
+    return res.status(400).json({
+      success: false,
+      message: `You've reached the limit of ${MAX_PHOTOS_PER_MONTH} progress photos this month. Try again next month.`,
+    })
+  }
 
   const { error } = await supabase.from('progress_photos').insert({
     member_id: req.member.id,
