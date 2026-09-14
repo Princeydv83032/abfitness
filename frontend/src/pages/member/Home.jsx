@@ -22,6 +22,11 @@ import {
   IoWaterOutline,
   IoMedicalOutline,
   IoBarbellOutline,
+  IoFlaskOutline,
+  IoCafeOutline,
+  IoNutritionOutline,
+  IoFishOutline,
+  IoSunnyOutline,
 } from "react-icons/io5";
 
 const DAYS = [
@@ -230,7 +235,7 @@ function Home() {
       isi ko tap karne se stage 2 (full size) khulta hai */}
       {photoView === "medium" && (
         <div
-          className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-6"
+          className="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-6"
           onClick={() => setPhotoView(null)}
         >
           <button
@@ -264,7 +269,7 @@ function Home() {
       {/* Stage 2: full size */}
       {photoView === "full" && (
         <div
-          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-6"
+          className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-6"
           onClick={() => setPhotoView(null)}
         >
           <button
@@ -291,7 +296,7 @@ function Home() {
       {/* Notifications Panel */}
       {showNotifs && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-start justify-end p-4"
+          className="fixed inset-0 z-[60] bg-black/60 flex items-start justify-end p-4"
           onClick={() => setShowNotifs(false)}
         >
           <div
@@ -634,12 +639,17 @@ function WaterStatCard({ memberId }) {
 
 // ── Supplement Card ──────────────────────────────────
 const supplements = [
-  { id: "creatine", name: "Creatine", dose: "5g" },
-  { id: "whey", name: "Whey Protein", dose: "1 scoop" },
-  { id: "multivitamin", name: "Multivitamin", dose: "1 tab" },
-  { id: "fishoil", name: "Fish Oil", dose: "1 cap" },
-  { id: "vitamin_d", name: "Vitamin D", dose: "1 tab" },
-  { id: "bcaa", name: "BCAA", dose: "1 scoop" },
+  { id: "creatine", name: "Creatine", dose: "5g", icon: IoFlaskOutline },
+  { id: "whey", name: "Whey Protein", dose: "1 scoop", icon: IoCafeOutline },
+  {
+    id: "multivitamin",
+    name: "Multivitamin",
+    dose: "1 tab",
+    icon: IoNutritionOutline,
+  },
+  { id: "fishoil", name: "Fish Oil", dose: "1 cap", icon: IoFishOutline },
+  { id: "vitamin_d", name: "Vitamin D", dose: "1 tab", icon: IoSunnyOutline },
+  { id: "bcaa", name: "BCAA", dose: "1 scoop", icon: IoBarbellOutline },
 ];
 
 function SupplementCard({ memberId }) {
@@ -715,12 +725,16 @@ function SupplementCard({ memberId }) {
             className="flex flex-col items-center gap-1 flex-shrink-0 w-12 active:scale-95 transition-transform"
           >
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                taken[s.id] ? "bg-emerald-500" : "bg-white/10"
+              className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                taken[s.id]
+                  ? "bg-emerald-500"
+                  : "bg-white/10 text-slate-400"
               }`}
             >
-              {taken[s.id] && (
-                <FiCheck size={15} strokeWidth={3} className="text-white" />
+              {taken[s.id] ? (
+                <FiCheck size={16} strokeWidth={3} className="text-white" />
+              ) : (
+                <s.icon size={16} />
               )}
             </div>
             <p

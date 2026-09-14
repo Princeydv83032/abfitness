@@ -229,7 +229,7 @@ function Videos() {
       {/* Video Player Modal */}
       {playing && (
         <div
-          className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+          className="fixed inset-0 z-[60] bg-black flex items-center justify-center"
           onClick={() => setPlaying(null)}
         >
           <div
