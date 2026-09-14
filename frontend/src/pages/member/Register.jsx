@@ -5,8 +5,16 @@ import { useNavigate, useLocation } from "react-router-dom";
 // import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth, googleProvider } from "../../lib/firebase";
 import { signInWithPopup } from "firebase/auth";
+import {
+  IoRocketOutline,
+  IoCameraOutline,
+  IoGiftOutline,
+  IoCheckmarkCircle,
+} from "react-icons/io5";
+import { FiArrowLeft, FiUser } from "react-icons/fi";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
+import { toast } from "../../lib/toast";
 
 function Register() {
   const navigate = useNavigate();
@@ -113,14 +121,14 @@ function Register() {
         setPhotoUrl(data.secure_url);
       } else {
         console.log("Photo upload error:", xhr.responseText);
-        alert("Photo upload failed. Please try again.");
+        toast.error("Photo upload failed. Please try again.");
       }
     };
 
     xhr.onerror = () => {
       setUploading(false);
       console.log("Photo upload error: network error");
-      alert("Photo upload failed. Please try again.");
+      toast.error("Photo upload failed. Please try again.");
     };
 
     xhr.send(formData);
@@ -272,7 +280,7 @@ function Register() {
       navigate("/pending");
     } catch (err) {
       console.log("Submit error:", err);
-      alert("Something went wrong: " + err.message);
+      toast.error("Something went wrong: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -288,10 +296,10 @@ function Register() {
           onClick={() => navigate("/login")}
           className="w-8 h-8 bg-[#1a1a2e] border border-white/10 rounded-lg flex items-center justify-center text-white"
         >
-          ←
+          <FiArrowLeft size={15} />
         </button>
         <div>
-          <h1 className="text-xl font-black text-white">Join AB Fitness</h1>
+          <h1 className="text-xl font-extrabold text-white">Join AB Fitness</h1>
           <p className="text-slate-400 text-xs">
             {step === 2 ? "Complete your profile" : "Register with Google"}
           </p>
@@ -302,8 +310,12 @@ function Register() {
       {step === 1 && (
         <div className="space-y-4">
           <div className="text-center mb-6">
-            <div className="text-5xl mb-3">🚀</div>
-            <h2 className="text-2xl font-black text-white">
+            <img
+              src="/icon-512.png"
+              alt="AB Fitness"
+              className="w-16 h-16 rounded-2xl shadow-lg mx-auto mb-3"
+            />
+            <h2 className="text-2xl font-extrabold text-white">
               Join with Google
             </h2>
             <p className="text-slate-400 text-sm mt-1">
@@ -311,7 +323,11 @@ function Register() {
             </p>
           </div>
 
-          {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+          {error && (
+            <p className="text-red-400 text-xs text-center bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+              {error}
+            </p>
+          )}
 
           <button
             onClick={handleGoogleRegister}
@@ -336,7 +352,7 @@ function Register() {
                 d="M43.6 20H24v8h11.3c-.8 2.3-2.3 4.2-4.3 5.5l6.2 5.2C41 35.3 44 30 44 24c0-1.3-.1-2.7-.4-4z"
               />
             </svg>
-            {loading ? "⏳ Please wait..." : "Register with Google"}
+            {loading ? "Please wait..." : "Register with Google"}
           </button>
 
           <button
@@ -344,7 +360,7 @@ function Register() {
             className="w-full text-center text-slate-400 text-sm py-2"
           >
             Already a member?{" "}
-            <span className="text-purple-400 font-bold">Login</span>
+            <span className="text-violet-400 font-bold">Login</span>
           </button>
         </div>
       )}
@@ -353,7 +369,7 @@ function Register() {
       {step === 2 && (
         <div className="space-y-5">
           <div className="text-center mb-2">
-            <h2 className="text-2xl font-black text-white">
+            <h2 className="text-2xl font-extrabold text-white">
               Complete Profile
             </h2>
             <p className="text-slate-400 text-sm mt-1">
@@ -372,12 +388,12 @@ function Register() {
                   <img
                     src={photoUrl}
                     alt="Profile"
-                    className="w-24 h-24 rounded-full object-cover border-4 border-purple-500"
+                    className="w-24 h-24 rounded-full object-cover border-4 border-violet-500"
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-[#1a1a2e] border-2 border-dashed border-white/20 flex flex-col items-center justify-center">
-                    <span className="text-2xl">📷</span>
-                    <span className="text-slate-500 text-[10px] mt-1 text-center px-2">
+                  <div className="w-24 h-24 rounded-full bg-[#1a1a2e] border-2 border-dashed border-white/20 flex flex-col items-center justify-center text-slate-500">
+                    <IoCameraOutline size={22} />
+                    <span className="text-[10px] mt-1 text-center px-2">
                       Add Photo
                     </span>
                   </div>
@@ -412,7 +428,7 @@ function Register() {
                       cy="48"
                       r="42"
                       fill="none"
-                      stroke="#a855f7"
+                      stroke="#8b5cf6"
                       strokeWidth="6"
                       strokeLinecap="round"
                       strokeDasharray={2 * Math.PI * 42}
@@ -422,7 +438,7 @@ function Register() {
                       style={{ transition: "stroke-dashoffset 0.15s linear" }}
                     />
                   </svg>
-                  <span className="relative z-10 text-white text-sm font-black">
+                  <span className="relative z-10 text-white text-sm font-extrabold">
                     {uploadProgress.toFixed(1)}%
                   </span>
                 </div>
@@ -430,11 +446,13 @@ function Register() {
             </div>
             <p className="text-xs font-bold mt-2 uppercase tracking-wider">
               {uploading ? (
-                <span className="text-purple-400">Uploading...</span>
+                <span className="text-violet-400">Uploading...</span>
               ) : photoUrl ? (
-                <span className="text-green-400">Photo added ✓</span>
+                <span className="text-emerald-400 flex items-center justify-center gap-1">
+                  <IoCheckmarkCircle size={13} /> Photo added
+                </span>
               ) : (
-                <span className="text-purple-400">Profile Photo *</span>
+                <span className="text-violet-400">Profile Photo *</span>
               )}
             </p>
           </div>
@@ -446,7 +464,7 @@ function Register() {
                 Full Name *
               </label>
               <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-                <span>👤</span>
+                <FiUser size={14} className="text-slate-500" />
                 <input
                   placeholder="Your full name"
                   value={name}
@@ -491,8 +509,8 @@ function Register() {
                   {googleUser.email}
                 </p>
               </div>
-              <span className="ml-auto flex-shrink-0 text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-bold">
-                Google ✓
+              <span className="ml-auto flex-shrink-0 text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <IoCheckmarkCircle size={11} /> Google
               </span>
             </div>
           )}
@@ -508,7 +526,7 @@ function Register() {
                 Age
               </label>
               <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-                <span>🎂</span>
+                <IoGiftOutline size={14} className="text-slate-500" />
                 <input
                   type="number"
                   placeholder="Your age"
@@ -532,7 +550,7 @@ function Register() {
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all
                       ${
                         goal === g
-                          ? "bg-purple-600 border-purple-600 text-white"
+                          ? "bg-violet-600 border-violet-600 text-white"
                           : "bg-[#1a1a2e] border-white/10 text-slate-400"
                       }`}
                   >
@@ -547,9 +565,15 @@ function Register() {
             <button
               onClick={handleSubmit}
               disabled={!canSubmit || loading}
-              className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+              className="w-full bg-violet-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? "⏳ Submitting..." : "🚀 Submit Request"}
+              {loading ? (
+                "Submitting..."
+              ) : (
+                <>
+                  <IoRocketOutline size={15} /> Submit Request
+                </>
+              )}
             </button>
             {!canSubmit && !loading && (
               <p className="text-slate-500 text-xs text-center mt-2">

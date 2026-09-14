@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 // import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { auth, googleProvider } from "../../lib/firebase";
 import { signInWithPopup } from "firebase/auth";
+import { IoArrowForward } from "react-icons/io5";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
@@ -152,9 +153,13 @@ function Login() {
     <div className="min-h-screen bg-[#0d0d14] flex flex-col items-center justify-center px-6">
       {/* <div id="recaptcha-container"></div> */}
 
-      <div className="text-5xl mb-6">🏋️</div>
+      <img
+        src="/icon-512.png"
+        alt="AB Fitness"
+        className="w-20 h-20 rounded-2xl shadow-lg mb-6"
+      />
 
-      <h1 className="text-3xl font-black text-white tracking-tight">
+      <h1 className="text-3xl font-extrabold text-white tracking-tight">
         Welcome back!
       </h1>
       <p className="text-slate-400 text-sm mt-2 text-center">
@@ -162,7 +167,11 @@ function Login() {
       </p>
 
       <div className="w-full max-w-sm mt-8 space-y-4">
-        {error && <p className="text-red-400 text-xs text-center">{error}</p>}
+        {error && (
+          <p className="text-red-400 text-xs text-center bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+            {error}
+          </p>
+        )}
 
         {/* Google Login */}
         <button
@@ -188,14 +197,15 @@ function Login() {
               d="M43.6 20H24v8h11.3c-.8 2.3-2.3 4.2-4.3 5.5l6.2 5.2C41 35.3 44 30 44 24c0-1.3-.1-2.7-.4-4z"
             />
           </svg>
-          {loading ? "⏳ Please wait..." : "Login with Google"}
+          {loading ? "Please wait..." : "Login with Google"}
         </button>
 
         <button
           onClick={() => navigate("/register")}
-          className="w-full bg-[#1a1a2e] border border-purple-500/30 text-purple-400 font-bold py-3 rounded-xl text-sm"
+          className="w-full bg-[#1a1a2e] border border-violet-500/30 text-violet-400 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2"
         >
-          🆕 New Member? Register with Google →
+          New Member? Register with Google
+          <IoArrowForward size={15} />
         </button>
       </div>
     </div>
