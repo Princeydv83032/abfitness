@@ -48,6 +48,46 @@ const MUSCLE_GROUPS = {
 const todayIndex = new Date().getDay();
 const todayName = DAYS[todayIndex === 0 ? 6 : todayIndex - 1];
 
+// Data fetch hone tak asli layout ke shape ka skeleton dikhate hain -
+// plain spinner se zyada informative lagta hai aur page achanak "blank"
+// nahi lagti
+function HomeSkeleton() {
+  const pulse = "bg-white/5 animate-pulse rounded-xl";
+  return (
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-24">
+      <div className="flex justify-between items-center mb-4">
+        <div className="space-y-2">
+          <div className={`h-3 w-20 ${pulse}`} />
+          <div className={`h-6 w-32 ${pulse}`} />
+        </div>
+        <div className="flex items-center gap-2.5">
+          <div className={`w-11 h-11 rounded-full ${pulse}`} />
+          <div className={`w-12 h-12 rounded-full ${pulse}`} />
+        </div>
+      </div>
+
+      <div className={`h-32 mb-2.5 rounded-3xl ${pulse}`} />
+
+      <div className="mb-2.5">
+        <div className={`h-6 w-36 mb-2 ${pulse}`} />
+        <div className={`h-36 rounded-2xl ${pulse}`} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+        <div className={`h-28 ${pulse}`} />
+        <div className={`h-28 ${pulse}`} />
+      </div>
+
+      <div className={`h-3 w-28 mb-2 ${pulse}`} />
+      <div className="grid grid-cols-4 gap-2">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className={`h-20 ${pulse}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Home() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -143,11 +183,7 @@ function Home() {
   }, [user?.id]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-violet-500 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <HomeSkeleton />;
   }
 
   return (

@@ -1,11 +1,43 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import {
+  IoHome,
+  IoHomeOutline,
+  IoBarbell,
+  IoBarbellOutline,
+  IoRestaurant,
+  IoRestaurantOutline,
+  IoCalendar,
+  IoCalendarOutline,
+  IoPerson,
+  IoPersonOutline,
+} from "react-icons/io5";
 
 const tabs = [
-  { icon: "🏠", label: "Home", path: "/home" },
-  { icon: "💪", label: "Workout", path: "/workout" },
-  { icon: "🥗", label: "Diet", path: "/diet" },
-  { icon: "📅", label: "Attendance", path: "/attendance" },
-  { icon: "👤", label: "Profile", path: "/profile" },
+  { icon: IoHomeOutline, activeIcon: IoHome, label: "Home", path: "/home" },
+  {
+    icon: IoBarbellOutline,
+    activeIcon: IoBarbell,
+    label: "Workout",
+    path: "/workout",
+  },
+  {
+    icon: IoRestaurantOutline,
+    activeIcon: IoRestaurant,
+    label: "Diet",
+    path: "/diet",
+  },
+  {
+    icon: IoCalendarOutline,
+    activeIcon: IoCalendar,
+    label: "Attendance",
+    path: "/attendance",
+  },
+  {
+    icon: IoPersonOutline,
+    activeIcon: IoPerson,
+    label: "Profile",
+    path: "/profile",
+  },
 ];
 
 function BottomNav() {
@@ -16,25 +48,29 @@ function BottomNav() {
     <div className="fixed bottom-0 left-0 right-0 bg-[#13131f] border-t border-white/7 flex z-50">
       {tabs.map((tab) => {
         const isActive = location.pathname === tab.path;
+        const Icon = isActive ? tab.activeIcon : tab.icon;
         return (
           <button
             key={tab.path}
             onClick={() => navigate(tab.path, { replace: true })}
-            className="flex-1 flex flex-col items-center justify-center py-3 gap-1 relative"
+            className="flex-1 flex flex-col items-center justify-center py-2.5 gap-1"
           >
-            <span
-              className={`text-xl leading-none ${isActive ? "filter drop-shadow-[0_0_6px_rgba(124,58,237,0.8)]" : ""}`}
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+                isActive
+                  ? "bg-violet-500/15 text-violet-400"
+                  : "text-slate-500"
+              }`}
             >
-              {tab.icon}
-            </span>
+              <Icon size={19} />
+            </div>
             <span
-              className={`text-[10px] font-bold ${isActive ? "text-purple-400" : "text-slate-500"}`}
+              className={`text-[10px] font-bold ${
+                isActive ? "text-violet-400" : "text-slate-500"
+              }`}
             >
               {tab.label}
             </span>
-            {isActive && (
-              <div className="absolute bottom-0 w-8 h-0.5 bg-purple-500 rounded-full" />
-            )}
           </button>
         );
       })}
