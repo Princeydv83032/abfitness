@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -13,39 +13,57 @@ import { ToastContainer } from "react-toastify";
 import { toast } from "./lib/toast";
 import "react-toastify/dist/ReactToastify.css";
 
+// Har page ab apna alag chunk hai - pehle sab 27 pages ek hi bade JS
+// bundle mein aate the, chahe user Login pe ho ya Home pe. lazy() se
+// sirf jo route actually visit ho raha hai uska code download hota hai,
+// baaki baad mein (ya kabhi nahi, agar member ne Owner ke pages kabhi
+// visit hi na kiye)
+
 // Member Pages
-import Splash from "./pages/member/Splash";
-import Login from "./pages/member/Login";
-import Register from "./pages/member/Register";
-import PendingApproval from "./pages/member/PendingApproval";
-import Home from "./pages/member/Home";
-import Workout from "./pages/member/Workout";
-import Attendance from "./pages/member/Attendance";
-import Payments from "./pages/member/Payments";
-import Profile from "./pages/member/Profile";
-import Diet from "./pages/member/Diet";
-import DietOverall from "./pages/member/DietOverall";
-import Progress from "./pages/member/Progress";
-import CalorieCounter from "./pages/member/CalorieCounter";
+const Splash = lazy(() => import("./pages/member/Splash"));
+const Login = lazy(() => import("./pages/member/Login"));
+const Register = lazy(() => import("./pages/member/Register"));
+const PendingApproval = lazy(() => import("./pages/member/PendingApproval"));
+const Home = lazy(() => import("./pages/member/Home"));
+const Workout = lazy(() => import("./pages/member/Workout"));
+const Attendance = lazy(() => import("./pages/member/Attendance"));
+const Payments = lazy(() => import("./pages/member/Payments"));
+const Profile = lazy(() => import("./pages/member/Profile"));
+const Diet = lazy(() => import("./pages/member/Diet"));
+const DietOverall = lazy(() => import("./pages/member/DietOverall"));
+const Progress = lazy(() => import("./pages/member/Progress"));
+const CalorieCounter = lazy(() => import("./pages/member/CalorieCounter"));
 
 // Owner Pages
-import OwnerLogin from "./pages/owner/OwnerLogin";
-import OwnerDashboard from "./pages/owner/OwnerDashboard";
-import MembersList from "./pages/owner/MembersList";
-import AddMember from "./pages/owner/AddMember";
-import MemberDetail from "./pages/owner/MemberDetail";
-import EditMember from "./pages/owner/EditMember";
-import LogPayment from "./pages/owner/LogPayment";
-import OwnerPayments from "./pages/owner/OwnerPayments";
-import OwnerAttendance from "./pages/owner/OwnerAttendance";
-import Videos from "./pages/owner/Videos";
-import UploadVideo from "./pages/owner/UploadVideo";
-import Reports from "./pages/owner/Reports";
-import Settings from "./pages/owner/Settings";
+const OwnerLogin = lazy(() => import("./pages/owner/OwnerLogin"));
+const OwnerDashboard = lazy(() => import("./pages/owner/OwnerDashboard"));
+const MembersList = lazy(() => import("./pages/owner/MembersList"));
+const AddMember = lazy(() => import("./pages/owner/AddMember"));
+const MemberDetail = lazy(() => import("./pages/owner/MemberDetail"));
+const EditMember = lazy(() => import("./pages/owner/EditMember"));
+const LogPayment = lazy(() => import("./pages/owner/LogPayment"));
+const OwnerPayments = lazy(() => import("./pages/owner/OwnerPayments"));
+const OwnerAttendance = lazy(() => import("./pages/owner/OwnerAttendance"));
+const Videos = lazy(() => import("./pages/owner/Videos"));
+const UploadVideo = lazy(() => import("./pages/owner/UploadVideo"));
+const Reports = lazy(() => import("./pages/owner/Reports"));
+const Settings = lazy(() => import("./pages/owner/Settings"));
 
-// Components
+// Components — chhote, hamesha-zaroori UI chrome hain, inhe lazy karne
+// ka koi fayda nahi (Suspense flicker add karega bina kisi bundle-size
+// fayde ke)
 import BottomNav from "./components/BottomNav";
 import OwnerBottomNav from "./components/OwnerBottomNav";
+
+// Route chunk download hote waqt ye dikhta hai - zyadatar bahut jaldi
+// (ya cache se turant) hoga, isliye simple spinner hi kaafi hai
+function RouteLoader() {
+  return (
+    <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-white/20 border-t-violet-500 rounded-full animate-spin"></div>
+    </div>
+  );
+}
 
 // ── Back Button Handler ─────────────────────────────────
 function BackButtonHandler() {
@@ -164,6 +182,7 @@ function App() {
       />
       <BackButtonHandler />
 
+      <Suspense fallback={<RouteLoader />}>
       <Routes>
         {/* Public */}
         <Route path="/" element={<Splash />} />
@@ -356,6 +375,7 @@ function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
 
       {/* Bottom Navigation */}
       {isLoggedIn && role === "member" && user?.status !== "pending" && (
