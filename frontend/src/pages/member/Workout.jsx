@@ -15,6 +15,25 @@ const days = [
 ];
 const shortDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
+// Exercise card ke shape ka pulsing placeholder - plain spinner se zyada
+// informative, batata hai ki cards aane wale hain
+function ExerciseCardSkeleton() {
+  const pulse = "bg-white/5 animate-pulse";
+  return (
+    <div className="bg-[#1a1a2e] border border-white/7 rounded-2xl overflow-hidden">
+      <div className={pulse} style={{ aspectRatio: "16/9" }} />
+      <div className="p-3.5 space-y-2.5">
+        <div className={`h-5 w-2/3 rounded-lg ${pulse}`} />
+        <div className="flex gap-1.5">
+          <div className={`h-5 w-16 rounded-full ${pulse}`} />
+          <div className={`h-5 w-14 rounded-full ${pulse}`} />
+          <div className={`h-5 w-14 rounded-full ${pulse}`} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Workout() {
   const location = useLocation();
   const todayIndex = new Date().getDay();
@@ -84,12 +103,12 @@ function Workout() {
               </span>
             </div>
             {playing.tip && (
-              <div className="flex items-start gap-1.5 mt-2.5 bg-violet-500/10 rounded-xl p-2.5">
+              <div className="flex items-start gap-1.5 mt-2.5">
                 <IoBulbOutline
-                  size={15}
-                  className="text-violet-400 mt-0.5 flex-shrink-0"
+                  size={14}
+                  className="text-slate-500 mt-0.5 flex-shrink-0"
                 />
-                <p className="text-violet-300 text-xs leading-snug">
+                <p className="text-slate-400 text-xs leading-snug">
                   {playing.tip}
                 </p>
               </div>
@@ -138,8 +157,10 @@ function Workout() {
 
       {/* Loading */}
       {loading && (
-        <div className="text-center py-8">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-violet-500 rounded-full animate-spin mx-auto"></div>
+        <div className="space-y-3.5">
+          <ExerciseCardSkeleton />
+          <ExerciseCardSkeleton />
+          <ExerciseCardSkeleton />
         </div>
       )}
 
@@ -206,7 +227,9 @@ function Workout() {
                 </div>
               </div>
 
-              {/* Exercise Info */}
+              {/* Exercise Info — YouTube jaisa: thumbnail ke neeche title +
+              meta row, description full-width plain text (koi colored box
+              nahi) */}
               <div className="p-3.5">
                 <div className="flex justify-between items-start gap-3">
                   <div className="flex-1 min-w-0">
@@ -227,18 +250,6 @@ function Workout() {
                         {ex.reps} reps
                       </span>
                     </div>
-
-                    {ex.tip && (
-                      <div className="flex items-start gap-1.5 mt-2.5 bg-violet-500/8 rounded-lg p-2">
-                        <IoBulbOutline
-                          size={14}
-                          className="text-violet-400 mt-0.5 flex-shrink-0"
-                        />
-                        <p className="text-violet-300 text-xs leading-snug">
-                          {ex.tip}
-                        </p>
-                      </div>
-                    )}
                   </div>
 
                   {/* Play Button */}
@@ -251,6 +262,18 @@ function Workout() {
                     </button>
                   )}
                 </div>
+
+                {ex.tip && (
+                  <div className="flex items-start gap-1.5 mt-2.5">
+                    <IoBulbOutline
+                      size={13}
+                      className="text-slate-500 mt-0.5 flex-shrink-0"
+                    />
+                    <p className="text-slate-400 text-xs leading-snug">
+                      {ex.tip}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ))}
