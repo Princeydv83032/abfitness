@@ -104,7 +104,7 @@
 //   }
 
 //   return (
-//     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
+//     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
 //       {/* Header */}
 //       <div className="flex justify-between items-center mb-4">
 //         <div>
@@ -400,7 +400,7 @@ function OwnerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div>

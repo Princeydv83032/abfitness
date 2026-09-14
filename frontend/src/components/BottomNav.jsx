@@ -53,16 +53,16 @@ function BottomNav() {
           <button
             key={tab.path}
             onClick={() => navigate(tab.path, { replace: true })}
-            className="flex-1 flex flex-col items-center justify-center py-2.5 gap-1"
+            className="flex-1 flex flex-col items-center justify-center py-1.5 gap-0.5"
           >
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                 isActive
                   ? "bg-violet-500/15 text-violet-400"
                   : "text-slate-500"
               }`}
             >
-              <Icon size={19} />
+              <Icon size={17} />
             </div>
             <span
               className={`text-[10px] font-bold ${

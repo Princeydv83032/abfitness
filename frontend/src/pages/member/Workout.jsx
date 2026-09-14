@@ -41,7 +41,7 @@ function Workout() {
   }, [selectedDay]);
 
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-24">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-20">
       {/* Video Player Modal */}
       {playing && (
         <div
