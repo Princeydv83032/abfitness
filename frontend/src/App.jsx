@@ -30,7 +30,6 @@ const Attendance = lazy(() => import("./pages/member/Attendance"));
 const Payments = lazy(() => import("./pages/member/Payments"));
 const Profile = lazy(() => import("./pages/member/Profile"));
 const Diet = lazy(() => import("./pages/member/Diet"));
-const DietOverall = lazy(() => import("./pages/member/DietOverall"));
 const Progress = lazy(() => import("./pages/member/Progress"));
 const CalorieCounter = lazy(() => import("./pages/member/CalorieCounter"));
 
@@ -222,14 +221,6 @@ function App() {
           element={
             <MemberRoute>
               <Diet />
-            </MemberRoute>
-          }
-        />
-        <Route
-          path="/diet/overall"
-          element={
-            <MemberRoute>
-              <DietOverall />
             </MemberRoute>
           }
         />
