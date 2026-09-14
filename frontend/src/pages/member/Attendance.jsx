@@ -3,6 +3,36 @@ import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
 import BadgePopup from "../../components/BadgePopup";
+import { FiRefreshCw, FiCheckSquare, FiUserCheck, FiUserX } from "react-icons/fi";
+import {
+  IoFlame,
+  IoCheckmarkCircleOutline,
+  IoStatsChartOutline,
+  IoCalendarOutline,
+  IoLocationOutline,
+  IoLockClosedOutline,
+  IoTimeOutline,
+  IoBarbellOutline,
+} from "react-icons/io5";
+
+// Data fetch hone tak asli layout ke shape ka skeleton
+function AttendanceSkeleton() {
+  const pulse = "bg-white/5 animate-pulse rounded-xl";
+  return (
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-20">
+      <div className={`h-7 w-40 mb-1.5 ${pulse}`} />
+      <div className={`h-4 w-28 mb-4 ${pulse}`} />
+      <div className={`h-32 mb-4 rounded-2xl ${pulse}`} />
+      <div className="flex gap-3 mb-5">
+        <div className={`h-20 flex-1 ${pulse}`} />
+        <div className={`h-20 flex-1 ${pulse}`} />
+        <div className={`h-20 flex-1 ${pulse}`} />
+      </div>
+      <div className={`h-72 rounded-2xl mb-4 ${pulse}`} />
+      <div className={`h-12 rounded-xl ${pulse}`} />
+    </div>
+  );
+}
 
 function Attendance() {
   const user = useAuthStore((state) => state.user);
@@ -110,47 +140,52 @@ function Attendance() {
   const todayDate = new Date().getDate();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <AttendanceSkeleton />;
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-5 pb-20">
       {/* Badge Popup */}
       {showBadge && badge && (
         <BadgePopup badge={badge} onClose={() => setShowBadge(false)} />
       )}
 
       {/* Header */}
-      <h1 className="text-2xl font-black text-white mb-1">My Attendance</h1>
-      <p className="text-slate-400 text-sm mb-4">
+      <h1 className="text-2xl font-extrabold text-white tracking-tight mb-1">
+        My Attendance
+      </h1>
+      <p className="text-slate-500 text-sm mb-4">
         {new Date().toLocaleString("default", {
           month: "long",
           year: "numeric",
         })}
       </p>
 
-      {/* Streak Card — PEHLE */}
+      {/* Streak Card */}
       {streak && (
-        <div className="bg-gradient-to-r from-orange-900/40 to-red-900/40 border border-orange-500/30 rounded-2xl p-4 mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <p className="text-orange-300 text-xs font-bold uppercase tracking-wider">
-              Daily Streak
-            </p>
+        <div className="bg-gradient-to-br from-orange-900/40 to-red-900/30 border border-orange-500/25 rounded-2xl p-4 mb-4">
+          <div className="flex justify-between items-center mb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 flex-shrink-0">
+                <IoFlame size={16} />
+              </div>
+              <p className="text-orange-300 text-xs font-bold uppercase tracking-wider">
+                Daily Streak
+              </p>
+            </div>
             <span className="text-2xl">{getStreakEmoji(streak.current)}</span>
           </div>
-          <div className="flex items-end gap-2 mb-2">
-            <span className="text-4xl font-black text-white">
+          <div className="flex items-end gap-2 mb-2.5">
+            <span className="text-4xl font-extrabold text-white leading-none">
               {streak.current}
             </span>
-            <span className="text-orange-300 text-sm font-bold mb-1">days</span>
+            <span className="text-orange-300 text-sm font-bold mb-1">
+              days
+            </span>
           </div>
-          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
+          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-2.5">
             <div
-              className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full"
+              className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all"
               style={{
                 width: `${Math.min(100, (streak.current / 30) * 100)}%`,
               }}
@@ -158,53 +193,66 @@ function Attendance() {
           </div>
           <div className="flex justify-between">
             <p className="text-slate-400 text-xs">
-              🏆 Best: {streak.longest} days
+              Best · {streak.longest} days
             </p>
             <p className="text-orange-300 text-xs font-bold">
               {streak.current < 7
-                ? `${7 - streak.current} more → 🔥`
+                ? `${7 - streak.current} more days to next badge`
                 : streak.current < 30
-                  ? `${30 - streak.current} more → 💪`
-                  : "💪 Amazing!"}
+                  ? `${30 - streak.current} more days to next badge`
+                  : "Amazing streak! 💪"}
             </p>
           </div>
         </div>
       )}
 
       {/* Stats */}
-      <div className="flex gap-3 mb-5">
-        <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-xl p-3">
-          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
-            Present
-          </p>
-          <p className="text-green-400 text-2xl font-black mt-1">
+      <div className="flex gap-2.5 mb-5">
+        <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-2xl p-3">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-400 mb-2">
+            <FiUserCheck size={17} />
+          </div>
+          <p className="text-white text-xl font-extrabold leading-none">
             {presentCount}
           </p>
-          <p className="text-slate-500 text-xs">days</p>
+          <p className="text-slate-500 text-[10px] font-bold uppercase mt-1.5">
+            Present
+          </p>
         </div>
-        <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-xl p-3">
-          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
+        <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-2xl p-3">
+          <div className="w-8 h-8 rounded-full bg-red-500/15 flex items-center justify-center text-red-400 mb-2">
+            <FiUserX size={17} />
+          </div>
+          <p className="text-white text-xl font-extrabold leading-none">
+            {absentCount}
+          </p>
+          <p className="text-slate-500 text-[10px] font-bold uppercase mt-1.5">
             Absent
           </p>
-          <p className="text-red-400 text-2xl font-black mt-1">{absentCount}</p>
-          <p className="text-slate-500 text-xs">days</p>
         </div>
-        <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-xl p-3">
-          <p className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
+        <div className="flex-1 bg-[#1a1a2e] border border-white/7 rounded-2xl p-3">
+          <div className="w-8 h-8 rounded-full bg-violet-500/15 flex items-center justify-center text-violet-400 mb-2">
+            <IoStatsChartOutline size={16} />
+          </div>
+          <p className="text-white text-xl font-extrabold leading-none">
+            {totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0}
+            %
+          </p>
+          <p className="text-slate-500 text-[10px] font-bold uppercase mt-1.5">
             Rate
           </p>
-          <p className="text-purple-400 text-2xl font-black mt-1">
-            {totalDays > 0 ? Math.round((presentCount / totalDays) * 100) : 0}%
-          </p>
-          <p className="text-slate-500 text-xs">month</p>
         </div>
       </div>
 
       {/* Calendar */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">
-        Calendar
-      </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl p-4 mb-4">
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-2xl p-3.5 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 flex-shrink-0">
+            <IoCalendarOutline size={16} />
+          </div>
+          <p className="text-white font-extrabold text-sm">Calendar</p>
+        </div>
+
         <div className="grid grid-cols-7 gap-1 mb-2">
           {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
             <div
@@ -223,8 +271,8 @@ function Attendance() {
               <div
                 key={day}
                 className={`aspect-square rounded-lg flex items-center justify-center text-xs font-bold
-                  ${isToday ? "bg-purple-500 text-white" : ""}
-                  ${isPresent && !isToday ? "bg-green-500/20 text-green-400" : ""}
+                  ${isToday ? "bg-violet-500 text-white" : ""}
+                  ${isPresent && !isToday ? "bg-emerald-500/20 text-emerald-400" : ""}
                   ${!isPresent && !isToday ? "bg-white/5 text-slate-600" : ""}
                 `}
               >
@@ -237,11 +285,11 @@ function Attendance() {
         {/* Legend */}
         <div className="flex gap-4 mt-3">
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-green-500/20"></div>
+            <div className="w-3 h-3 rounded bg-emerald-500/20"></div>
             <span className="text-slate-400 text-xs">Present</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-purple-500"></div>
+            <div className="w-3 h-3 rounded bg-violet-500"></div>
             <span className="text-slate-400 text-xs">Today</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -253,11 +301,13 @@ function Attendance() {
 
       {/* Location Error Card */}
       {locationError && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-4">
+        <div className="bg-red-500/10 border border-red-500/25 rounded-2xl p-4 mb-4">
           {locationError.permissionDenied && (
             <div className="text-center">
-              <div className="text-4xl mb-2">🚫</div>
-              <p className="text-red-400 font-black text-sm">
+              <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center text-red-400 mx-auto mb-2.5">
+                <IoLockClosedOutline size={26} />
+              </div>
+              <p className="text-red-400 font-extrabold text-sm">
                 Location Access Denied!
               </p>
               <p className="text-slate-400 text-xs mt-2">
@@ -268,7 +318,7 @@ function Attendance() {
               </p>
               <button
                 onClick={() => setLocationError(null)}
-                className="mt-3 bg-red-500/20 text-red-400 text-xs font-bold px-4 py-2 rounded-xl"
+                className="mt-3 bg-red-500/15 text-red-400 text-xs font-bold px-4 py-2 rounded-xl"
               >
                 Dismiss
               </button>
@@ -277,8 +327,10 @@ function Attendance() {
 
           {locationError.timeout && (
             <div className="text-center">
-              <div className="text-4xl mb-2">⏱️</div>
-              <p className="text-red-400 font-black text-sm">
+              <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center text-red-400 mx-auto mb-2.5">
+                <IoTimeOutline size={26} />
+              </div>
+              <p className="text-red-400 font-extrabold text-sm">
                 Location Timeout!
               </p>
               <p className="text-slate-400 text-xs mt-2">
@@ -289,40 +341,44 @@ function Attendance() {
                   setLocationError(null);
                   handleCheckIn();
                 }}
-                className="mt-3 bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl"
+                className="mt-3 flex items-center gap-1.5 justify-center mx-auto bg-violet-600 text-white text-xs font-bold px-4 py-2 rounded-xl"
               >
-                🔄 Try Again
+                <FiRefreshCw size={13} /> Try Again
               </button>
             </div>
           )}
 
           {locationError.distance && (
             <div className="text-center">
-              <div className="text-4xl mb-2">📍</div>
-              <p className="text-red-400 font-black text-sm mb-3">
+              <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center text-red-400 mx-auto mb-2.5">
+                <IoLocationOutline size={26} />
+              </div>
+              <p className="text-red-400 font-extrabold text-sm mb-3">
                 Aap Gym Mein Nahi Hain!
               </p>
 
               {/* Distance Info */}
               <div className="bg-[#0d0d14] rounded-xl p-3 mb-3">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-slate-400 text-xs">
-                    📍 Aapki distance
+                  <span className="text-slate-400 text-xs flex items-center gap-1.5">
+                    <IoLocationOutline size={13} /> Aapki distance
                   </span>
-                  <span className="text-red-400 font-black text-sm">
+                  <span className="text-red-400 font-extrabold text-sm">
                     {locationError.distance}m
                   </span>
                 </div>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-slate-400 text-xs">
-                    ✅ Allowed radius
+                  <span className="text-slate-400 text-xs flex items-center gap-1.5">
+                    <IoCheckmarkCircleOutline size={13} /> Allowed radius
                   </span>
-                  <span className="text-green-400 font-black text-sm">
+                  <span className="text-emerald-400 font-extrabold text-sm">
                     {locationError.radius}m
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-xs">🏋️ Gym</span>
+                  <span className="text-slate-400 text-xs flex items-center gap-1.5">
+                    <IoBarbellOutline size={13} /> Gym
+                  </span>
                   <span className="text-white font-bold text-xs">
                     {locationError.gymName}
                   </span>
@@ -333,19 +389,20 @@ function Attendance() {
               <div className="mb-3">
                 <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-red-500 rounded-full"
+                    className="h-full bg-red-500 rounded-full transition-all"
                     style={{
                       width: `${Math.min(100, (locationError.radius / locationError.distance) * 100)}%`,
                     }}
                   />
                 </div>
                 <p className="text-slate-500 text-xs mt-1 text-center">
-                  {locationError.distance - locationError.radius}m aur paas aao
+                  {locationError.distance - locationError.radius}m aur paas
+                  aao
                 </p>
               </div>
 
               <p className="text-slate-400 text-xs mb-3">
-                🏃 Gym pahuncho aur dobara check-in karo!
+                Gym pahuncho aur dobara check-in karo!
               </p>
 
               <button
@@ -353,9 +410,9 @@ function Attendance() {
                   setLocationError(null);
                   handleCheckIn();
                 }}
-                className="w-full bg-purple-600 text-white text-xs font-bold py-2.5 rounded-xl"
+                className="w-full flex items-center gap-1.5 justify-center bg-violet-600 text-white text-xs font-bold py-2.5 rounded-xl"
               >
-                🔄 Retry Check-In
+                <FiRefreshCw size={13} /> Retry Check-In
               </button>
             </div>
           )}
@@ -366,37 +423,25 @@ function Attendance() {
       <button
         onClick={handleCheckIn}
         disabled={checkedToday || checkingIn}
-        className={`w-full font-bold py-3 rounded-xl text-sm transition-all
+        className={`w-full flex items-center justify-center gap-2 font-extrabold py-3.5 rounded-2xl text-sm transition-colors
     ${
       checkedToday
-        ? "bg-green-500/20 border border-green-500/30 text-green-400"
-        : "bg-purple-600 text-white"
+        ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+        : "bg-violet-600 text-white active:scale-[0.98] transition-transform"
     }`}
       >
-        {checkingIn
-          ? "⏳ Verifying location..."
-          : checkedToday
-            ? "✅ Checked In Today!"
-            : "📍 Check In Now"}
+        {checkingIn ? (
+          "Verifying location..."
+        ) : checkedToday ? (
+          <>
+            <IoCheckmarkCircleOutline size={18} /> Checked In Today!
+          </>
+        ) : (
+          <>
+            <FiCheckSquare size={16} /> Check In Now
+          </>
+        )}
       </button>
-
-      {/* Check In Button */}
-      {/* <button
-        onClick={handleCheckIn}
-        disabled={checkedToday || checkingIn}
-        className={`w-full font-bold py-3 rounded-xl text-sm transition-all
-    ${
-      checkedToday
-        ? "bg-green-500/20 border border-green-500/30 text-green-400"
-        : "bg-purple-600 text-white"
-    }`}
-      >
-        {checkingIn
-          ? "⏳ Verifying location..."
-          : checkedToday
-            ? "✅ Checked In Today!"
-            : "📍 Check In Now"}
-      </button> */}
     </div>
   );
 }
