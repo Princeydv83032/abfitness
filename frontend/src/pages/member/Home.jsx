@@ -244,24 +244,31 @@ function Home() {
           >
             <FiX size={18} />
           </button>
+          {/* WhatsApp jaisa card - rounded rectangle, circle nahi, naam
+          label upar overlay */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               setPhotoView("full");
             }}
-            className="active:scale-95 transition-transform"
+            className="relative w-72 max-w-[80vw] rounded-2xl overflow-hidden shadow-2xl active:scale-[0.98] transition-transform"
           >
             {data?.profile_photo ? (
               <img
                 src={data.profile_photo}
                 alt="Profile"
-                className="w-56 h-56 rounded-full object-cover border-4 border-violet-500 shadow-2xl"
+                className="w-full aspect-square object-cover"
               />
             ) : (
-              <div className="w-56 h-56 rounded-full bg-violet-600 flex items-center justify-center text-white font-extrabold text-7xl border-4 border-violet-400 shadow-2xl">
+              <div className="w-full aspect-square bg-violet-600 flex items-center justify-center text-white font-extrabold text-7xl">
                 {(data?.name || "M")[0]}
               </div>
             )}
+            <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-3.5">
+              <p className="text-white font-bold text-sm text-left">
+                {data?.name || "Member"}
+              </p>
+            </div>
           </button>
         </div>
       )}
