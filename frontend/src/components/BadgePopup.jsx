@@ -22,7 +22,7 @@ function BadgePopup({ badge, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-[#1a1a2e] border border-purple-500/30 rounded-3xl p-8 text-center mx-6 transition-all duration-300"
+        className="bg-[#1a1a2e] border border-violet-500/30 rounded-3xl p-8 text-center mx-6 transition-all duration-300"
         style={{
           transform: show ? 'scale(1)' : 'scale(0.5)',
           opacity:   show ? 1 : 0,
@@ -37,7 +37,7 @@ function BadgePopup({ badge, onClose }) {
         </div>
 
         {/* Congrats */}
-        <p className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">
+        <p className="text-violet-400 text-xs font-bold uppercase tracking-wider mb-2">
           New Achievement!
         </p>
         <h2 className="text-white text-2xl font-black mb-2">
