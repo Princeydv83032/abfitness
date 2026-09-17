@@ -21,6 +21,7 @@ const addMember = z.object({
   paymentMethod: z.enum(['cash', 'upi']).optional(),
   upiRef: z.string().max(200).optional(),
   joinDate: dateStr.optional(),
+  profilePhoto: z.string().max(2000).optional().nullable(),
 })
 
 const logPayment = z.object({
@@ -28,6 +29,7 @@ const logPayment = z.object({
   plan,
   method: z.enum(['cash', 'upi']).optional(),
   upiRef: z.string().max(200).optional(),
+  paymentDate: dateStr.optional(),
 })
 
 module.exports = { createOrder, verify, addMember, logPayment }

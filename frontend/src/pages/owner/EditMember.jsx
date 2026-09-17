@@ -1,6 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { FiArrowLeft, FiUser, FiPhone, FiCalendar, FiClock, FiCheck } from 'react-icons/fi'
 import { apiFetch } from '../../lib/api'
+import { toast } from '../../lib/toast'
+
+function EditMemberSkeleton() {
+  return (
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-10">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-8 h-8 bg-white/5 rounded-lg animate-pulse" />
+        <div className="h-6 w-32 bg-white/5 rounded-lg animate-pulse" />
+      </div>
+      <div className="space-y-4">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-14 bg-white/5 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function EditMember() {
   const navigate = useNavigate()
@@ -59,32 +77,30 @@ function EditMember() {
     })
 
     if (res.success) {
-      alert('✅ Member updated successfully!')
+      toast.success('Member updated successfully!')
       navigate(`/owner/members/${id}`)
     } else {
-      alert('Something went wrong: ' + (res.message || res.error))
+      toast.error('Something went wrong: ' + (res.message || res.error))
     }
     setSaving(false)
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin"></div>
-      </div>
-    )
+    return <EditMemberSkeleton />
   }
 
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-10">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button
           onClick={() => navigate(-1)}
           className="w-8 h-8 bg-[#1a1a2e] border border-white/10 rounded-lg flex items-center justify-center text-white"
-        >←</button>
-        <h1 className="text-xl font-black text-white">Edit Member</h1>
+        >
+          <FiArrowLeft size={15} />
+        </button>
+        <h1 className="text-xl font-extrabold text-white">Edit Member</h1>
       </div>
 
       <div className="space-y-4">
@@ -95,7 +111,7 @@ function EditMember() {
             Full Name *
           </label>
           <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>👤</span>
+            <FiUser size={14} className="text-slate-500" />
             <input
               placeholder="Member's full name"
               value={form.name}
@@ -111,7 +127,7 @@ function EditMember() {
             Phone Number *
           </label>
           <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>📞</span>
+            <FiPhone size={14} className="text-slate-500" />
             <input
               type="tel"
               placeholder="10 digit mobile number"
@@ -135,7 +151,7 @@ function EditMember() {
                 onClick={() => setForm((prev) => ({ ...prev, plan: p }))}
                 className={`flex-1 rounded-xl p-2.5 text-center border transition-all
                   ${form.plan === p
-                    ? 'bg-purple-600 border-purple-600 text-white'
+                    ? 'bg-violet-600 border-violet-600 text-white'
                     : 'bg-[#1a1a2e] border-white/10 text-slate-400'
                   }`}
               >
@@ -152,9 +168,9 @@ function EditMember() {
           </label>
           <div className="flex gap-2 mt-1.5">
             {[
-              { key: 'active',  label: 'Active',  color: 'bg-green-500/20 border-green-500 text-green-400'  },
-              { key: 'paused',  label: 'Paused',  color: 'bg-amber-500/20 border-amber-500 text-amber-400'  },
-              { key: 'expired', label: 'Expired', color: 'bg-red-500/20   border-red-500   text-red-400'    },
+              { key: 'active',  label: 'Active',  color: 'bg-emerald-500/15 border-emerald-500 text-emerald-400'  },
+              { key: 'paused',  label: 'Paused',  color: 'bg-amber-500/15 border-amber-500 text-amber-400'  },
+              { key: 'expired', label: 'Expired', color: 'bg-red-500/15   border-red-500   text-red-400'    },
             ].map((s) => (
               <button
                 key={s.key}
@@ -174,9 +190,10 @@ function EditMember() {
             Join Date
           </label>
           <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>📅</span>
+            <FiCalendar size={14} className="text-slate-500" />
             <input
               type="date"
+              lang="en-GB"
               value={form.joined_at}
               onChange={set('joined_at')}
               className="bg-transparent outline-none text-white text-sm flex-1"
@@ -190,9 +207,10 @@ function EditMember() {
             Expiry Date
           </label>
           <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>⏰</span>
+            <FiClock size={14} className="text-slate-500" />
             <input
               type="date"
+              lang="en-GB"
               value={form.expires_at}
               onChange={set('expires_at')}
               className="bg-transparent outline-none text-white text-sm flex-1"
@@ -204,9 +222,15 @@ function EditMember() {
         <button
           onClick={handleSave}
           disabled={!form.name || form.phone.length !== 10 || saving}
-          className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+          className="w-full bg-violet-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {saving ? '⏳ Saving...' : '✅ Save Changes'}
+          {saving ? (
+            'Saving...'
+          ) : (
+            <>
+              <FiCheck size={15} /> Save Changes
+            </>
+          )}
         </button>
 
       </div>

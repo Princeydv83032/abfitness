@@ -273,7 +273,7 @@ router.get('/all', verifyOwner, async (req, res) => {
   const { from, to } = req.query
   let query = supabase
     .from('payments')
-    .select('*, members(name, member_id)')
+    .select('*, members(name, member_id, profile_photo)')
     .order('paid_at', { ascending: false })
 
   if (from) query = query.gte('paid_at', from)
@@ -298,7 +298,7 @@ router.get('/member/:memberId', verifyOwner, async (req, res) => {
 
 // ── Owner: naya member add karo (+ initial payment) ───────────────────
 router.post('/add-member', verifyOwner, validate(addMember), async (req, res) => {
-  const { name, phone, plan, paymentMethod, upiRef, joinDate } = req.body
+  const { name, phone, plan, paymentMethod, upiRef, joinDate, profilePhoto } = req.body
 
   if (!name || !phone || phone.length !== 10) {
     return res.status(400).json({ success: false, message: 'Invalid name/phone' })
@@ -327,6 +327,7 @@ router.post('/add-member', verifyOwner, validate(addMember), async (req, res) =>
         joined_at:  joinDate || new Date().toISOString().split('T')[0],
         expires_at: expiresAt,
         status:     'active',
+        profile_photo: profilePhoto || null,
       })
       .select()
       .single()
@@ -352,16 +353,57 @@ router.post('/add-member', verifyOwner, validate(addMember), async (req, res) =>
 
 // ── Owner: existing member ke liye manual payment log karo ────────────
 router.post('/log', verifyOwner, validate(logPayment), async (req, res) => {
-  const { memberId, plan, method, upiRef } = req.body
+  const { memberId, plan, method, upiRef, paymentDate } = req.body
 
   if (!memberId || !PLAN_DAYS[plan]) {
     return res.status(400).json({ success: false, message: 'Invalid member/plan' })
   }
 
+  // Owner ek calendar se ye date chun sakta hai (advance payment - agle
+  // mahine ke liye abhi pay karna) - default aaj ka din
+  const paidAt = paymentDate ? new Date(`${paymentDate}T00:00:00`) : new Date()
+  if (isNaN(paidAt.getTime())) {
+    return res.status(400).json({ success: false, message: 'Invalid payment date' })
+  }
+
   try {
+    // Us specific mahine (jis date ke liye pay kar rahe hain, aaj ka nahi)
+    // mein dobara payment na log ho jaaye - agle mahine ke liye advance
+    // payment ko galti se "already paid" na maan le
+    const monthStart = new Date(paidAt.getFullYear(), paidAt.getMonth(), 1).toISOString()
+    const monthEnd = new Date(paidAt.getFullYear(), paidAt.getMonth() + 1, 1).toISOString()
+    const { data: existingPayment, error: existingError } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('member_id', memberId)
+      .gte('paid_at', monthStart)
+      .lt('paid_at', monthEnd)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingError) throw existingError
+    if (existingPayment) {
+      return res.status(409).json({ success: false, message: 'Already paid for this month' })
+    }
+
     const fees = await getFees()
 
-    const expiryDate = new Date()
+    // Agar member abhi bhi active hai aur uski expiry chuni gayi payment
+    // date se aage hai (advance payment), wahi se aage badhao - taaki
+    // paid din overlap na ho aur membership shrink na ho jaaye
+    const { data: currentMember } = await supabase
+      .from('members')
+      .select('expires_at')
+      .eq('id', memberId)
+      .single()
+
+    let base = paidAt
+    if (currentMember?.expires_at) {
+      const currentExpiry = new Date(currentMember.expires_at)
+      if (currentExpiry > base) base = currentExpiry
+    }
+
+    const expiryDate = new Date(base)
     expiryDate.setDate(expiryDate.getDate() + PLAN_DAYS[plan])
     const expiresAt = expiryDate.toISOString().split('T')[0]
 
@@ -373,7 +415,7 @@ router.post('/log', verifyOwner, validate(logPayment), async (req, res) => {
         method:    method || 'cash',
         upi_ref:   upiRef || null,
         plan,
-        paid_at:   new Date().toISOString(),
+        paid_at:   paidAt.toISOString(),
       })
       .select()
       .single()
@@ -409,7 +451,7 @@ router.post('/log', verifyOwner, validate(logPayment), async (req, res) => {
 router.get('/members-for-logging', verifyOwner, async (req, res) => {
   const { data, error } = await supabase
     .from('members')
-    .select('id, name, member_id, plan, expires_at, email')
+    .select('id, name, member_id, plan, expires_at, email, profile_photo')
     .order('name')
 
   if (error) return res.status(500).json({ success: false, error: error.message })
