@@ -110,7 +110,7 @@ router.get('/today', verifyOwner, async (req, res) => {
 
   const { data, error } = await supabase
     .from('attendance')
-    .select('*, members(name, member_id)')
+    .select('*, members(name, member_id, profile_photo, phone)')
     .eq('date', today)
     .order('checked_in_at', { ascending: false })
 
