@@ -347,6 +347,14 @@ function App() {
           }
         />
         <Route
+          path="/owner/videos/edit/:id"
+          element={
+            <OwnerRoute>
+              <UploadVideo />
+            </OwnerRoute>
+          }
+        />
+        <Route
           path="/owner/reports"
           element={
             <OwnerRoute>
