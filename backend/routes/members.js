@@ -359,6 +359,16 @@ router.get('/expiring', verifyOwner, async (req, res) => {
 router.get('/stats', verifyOwner, async (req, res) => {
   const { month } = req.query // "YYYY-MM", optional
 
+  // `${month}-31` galat tha - Sept/April/June/Nov jaise 30-din wale
+  // mahino mein "2026-09-31" invalid date hone ki wajah se query hi
+  // silently fail ho jaati thi (count hamesha 0 aa raha tha). Agle
+  // mahine ke pehle din se "lt" lagao - month-length-agnostic hai
+  let nextMonthStart = null
+  if (month) {
+    const [year, mon] = month.split('-').map(Number)
+    nextMonthStart = new Date(Date.UTC(year, mon, 1)).toISOString().slice(0, 10)
+  }
+
   try {
     const [activeRes, expiredRes, newRes] = await Promise.all([
       supabase.from('members').select('*', { count: 'exact', head: true }).eq('status', 'active'),
@@ -368,7 +378,7 @@ router.get('/stats', verifyOwner, async (req, res) => {
             .from('members')
             .select('*', { count: 'exact', head: true })
             .gte('joined_at', `${month}-01`)
-            .lte('joined_at', `${month}-31`)
+            .lt('joined_at', nextMonthStart)
         : Promise.resolve({ count: 0 }),
     ])
 
