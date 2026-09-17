@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { IoKeyOutline, IoLockClosedOutline, IoArrowForward } from "react-icons/io5";
+import { FiArrowLeft } from "react-icons/fi";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
 
@@ -104,9 +106,11 @@ function OwnerLogin() {
     <div className="min-h-screen bg-[#0d0d14] flex flex-col items-center justify-center px-6">
       <div id="recaptcha-container-owner"></div>
 
-      <div className="text-5xl mb-6">🔑</div>
+      <div className="w-16 h-16 rounded-2xl bg-violet-500/15 flex items-center justify-center text-violet-400 mb-6">
+        <IoKeyOutline size={30} />
+      </div>
 
-      <h1 className="text-3xl font-black text-white tracking-tight">
+      <h1 className="text-3xl font-extrabold text-white tracking-tight">
         {step === 1 ? "Owner Login" : "Enter OTP"}
       </h1>
       <p className="text-slate-400 text-sm mt-2 text-center">
@@ -117,9 +121,10 @@ function OwnerLogin() {
 
       {/* Warning */}
       {step === 1 && (
-        <div className="w-full max-w-sm mt-4 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+        <div className="w-full max-w-sm mt-4 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 flex items-center gap-2">
+          <IoLockClosedOutline size={14} className="text-red-400 flex-shrink-0" />
           <p className="text-red-400 text-xs">
-            🔒 This area is for gym owners only.
+            This area is for gym owners only.
           </p>
         </div>
       )}
@@ -145,14 +150,24 @@ function OwnerLogin() {
               </div>
             </div>
 
-            {error && <p className="text-red-400 text-xs">{error}</p>}
+            {error && (
+              <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+                {error}
+              </p>
+            )}
 
             <button
               onClick={handleSendOTP}
               disabled={phone.length !== 10 || loading}
-              className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+              className="w-full bg-violet-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? "⏳ Verifying..." : "Send OTP →"}
+              {loading ? (
+                "Verifying..."
+              ) : (
+                <>
+                  Send OTP <IoArrowForward size={15} />
+                </>
+              )}
             </button>
           </>
         ) : (
@@ -163,19 +178,27 @@ function OwnerLogin() {
               maxLength={6}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 text-white text-center text-2xl font-black outline-none tracking-widest placeholder:text-slate-600 placeholder:text-base placeholder:font-normal focus:border-purple-500"
+              className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 text-white text-center text-2xl font-extrabold outline-none tracking-widest placeholder:text-slate-600 placeholder:text-base placeholder:font-normal focus:border-violet-500"
             />
 
             {error && (
-              <p className="text-red-400 text-xs text-center">{error}</p>
+              <p className="text-red-400 text-xs text-center bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5">
+                {error}
+              </p>
             )}
 
             <button
               onClick={handleVerifyOTP}
               disabled={otp.length !== 6 || loading}
-              className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+              className="w-full bg-violet-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? "⏳ Verifying..." : "Verify & Login →"}
+              {loading ? (
+                "Verifying..."
+              ) : (
+                <>
+                  Verify & Login <IoArrowForward size={15} />
+                </>
+              )}
             </button>
 
             <button
@@ -184,9 +207,9 @@ function OwnerLogin() {
                 setOtp("");
                 setError("");
               }}
-              className="w-full text-center text-slate-400 text-xs"
+              className="w-full text-center text-slate-400 text-xs flex items-center justify-center gap-1.5"
             >
-              ← Change number
+              <FiArrowLeft size={12} /> Change number
             </button>
           </>
         )}
@@ -194,9 +217,9 @@ function OwnerLogin() {
 
       <button
         onClick={() => navigate("/login")}
-        className="text-purple-400 text-xs font-semibold mt-8"
+        className="text-violet-400 text-xs font-semibold mt-8 flex items-center gap-1.5"
       >
-        ← Member Login
+        <FiArrowLeft size={12} /> Member Login
       </button>
     </div>
   );
