@@ -1,316 +1,103 @@
-// import { useState } from "react";
-// import { useNavigate } from "react-router-dom";
-// import { uploadVideo } from "../../lib/cloudinary";
-// import { supabase } from "../../lib/supabase";
-
-// const days = [
-//   "Monday",
-//   "Tuesday",
-//   "Wednesday",
-//   "Thursday",
-//   "Friday",
-//   "Saturday",
-//   "Sunday",
-// ];
-// const muscles = ["Chest", "Arms", "Shoulders", "Back", "Legs", "Core"];
-
-// function UploadVideo() {
-//   const navigate = useNavigate();
-
-//   const [form, setForm] = useState({
-//     name: "",
-//     muscle: "Chest",
-//     day: "Monday",
-//     sets: "3",
-//     reps: "12",
-//     tip: "",
-//   });
-
-//   const [file, setFile] = useState(null);
-//   const [preview, setPreview] = useState(null);
-//   const [uploading, setUploading] = useState(false);
-//   const [progress, setProgress] = useState(0);
-//   const [error, setError] = useState("");
-//   const [success, setSuccess] = useState(false);
-
-//   const set = (key) => (e) =>
-//     setForm((prev) => ({ ...prev, [key]: e.target.value }));
-
-//   const handleFileSelect = (e) => {
-//     const selected = e.target.files[0];
-//     if (!selected) return;
-
-//     // Sirf video files allow karo
-//     if (!selected.type.startsWith("video/")) {
-//       setError("Please select a video file");
-//       return;
-//     }
-
-//     // Max 100MB
-//     if (selected.size > 100 * 1024 * 1024) {
-//       setError("Video size should be less than 100MB");
-//       return;
-//     }
-
-//     setFile(selected);
-//     setPreview(URL.createObjectURL(selected));
-//     setError("");
-//   };
-
-//   const handleUpload = async () => {
-//     if (!form.name || !file) return;
-//     setUploading(true);
-//     setError("");
-//     setProgress(0);
-
-//     try {
-//       // Step 1 — Cloudinary pe upload karo
-//       const videoUrl = await uploadVideo(file, (percent) => {
-//         setProgress(percent);
-//       });
-
-//       // Step 2 — Supabase mein save karo
-//       const { error: dbError } = await supabase.from("exercises").insert({
-//         name: form.name,
-//         muscle_group: form.muscle,
-//         day: form.day,
-//         sets: parseInt(form.sets),
-//         reps: parseInt(form.reps),
-//         tip: form.tip || null,
-//         video_url: videoUrl,
-//         order_index: 0,
-//       });
-
-//       if (dbError) throw dbError;
-
-//       setSuccess(true);
-//       setTimeout(() => navigate("/owner/videos"), 1500);
-//     } catch (err) {
-//       console.log("Upload error:", err);
-//       setError("Upload failed. Please try again.");
-//     } finally {
-//       setUploading(false);
-//     }
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-10">
-//       {/* Header */}
-//       <div className="flex items-center gap-3 mb-5">
-//         <button
-//           onClick={() => navigate(-1)}
-//           className="w-8 h-8 bg-[#1a1a2e] border border-white/10 rounded-lg flex items-center justify-center text-white"
-//         >
-//           ←
-//         </button>
-//         <h1 className="text-xl font-black text-white">Upload Exercise</h1>
-//       </div>
-
-//       {/* Video Select Area */}
-//       <div className="mb-5">
-//         {!preview ? (
-//           <label
-//             htmlFor="video-input"
-//             className="h-32 rounded-2xl flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-white/10 bg-[#1a1a2e]"
-//           >
-//             <div className="text-3xl mb-1">📱</div>
-//             <p className="text-slate-400 text-sm">
-//               Tap to select video from gallery
-//             </p>
-//             <p className="text-slate-500 text-xs mt-0.5">Max 100MB</p>
-//           </label>
-//         ) : (
-//           <div className="relative h-48 rounded-2xl overflow-hidden bg-black">
-//             <video
-//               src={preview}
-//               className="w-full h-full object-cover"
-//               controls
-//             />
-//             <button
-//               onClick={() => {
-//                 setFile(null);
-//                 setPreview(null);
-//               }}
-//               className="absolute top-2 right-2 w-7 h-7 bg-red-500 rounded-full flex items-center justify-center text-white text-xs"
-//             >
-//               ✕
-//             </button>
-//             <div className="absolute bottom-2 left-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-//               ✓ Video Selected
-//             </div>
-//           </div>
-//         )}
-
-//         <input
-//           id="video-input"
-//           type="file"
-//           accept="video/*"
-//           onChange={handleFileSelect}
-//           className="hidden"
-//         />
-//       </div>
-
-//       {/* Upload Progress */}
-//       {uploading && (
-//         <div className="mb-4">
-//           <div className="flex justify-between mb-1">
-//             <p className="text-slate-400 text-xs">Uploading to Cloudinary...</p>
-//             <p className="text-purple-400 text-xs font-bold">{progress}%</p>
-//           </div>
-//           <div className="h-2 bg-[#1a1a2e] rounded-full overflow-hidden">
-//             <div
-//               className="h-full bg-purple-600 rounded-full transition-all duration-200"
-//               style={{ width: `${progress}%` }}
-//             />
-//           </div>
-//         </div>
-//       )}
-
-//       {/* Success */}
-//       {success && (
-//         <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-3 mb-4 text-center">
-//           <p className="text-green-400 font-bold">
-//             ✅ Exercise uploaded successfully!
-//           </p>
-//         </div>
-//       )}
-
-//       {/* Error */}
-//       {error && (
-//         <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-3 mb-4">
-//           <p className="text-red-400 text-sm">{error}</p>
-//         </div>
-//       )}
-
-//       <div className="space-y-4">
-//         {/* Name */}
-//         <div>
-//           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-//             Exercise Name *
-//           </label>
-//           <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-//             <span>💪</span>
-//             <input
-//               placeholder="e.g. Bench Press"
-//               value={form.name}
-//               onChange={set("name")}
-//               className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600"
-//             />
-//           </div>
-//         </div>
-
-//         {/* Muscle + Day */}
-//         <div className="flex gap-3">
-//           <div className="flex-1">
-//             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-//               Muscle Group *
-//             </label>
-//             <select
-//               value={form.muscle}
-//               onChange={set("muscle")}
-//               className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-3 py-3 mt-1.5 text-white text-sm outline-none"
-//             >
-//               {muscles.map((m) => (
-//                 <option key={m} value={m}>
-//                   {m}
-//                 </option>
-//               ))}
-//             </select>
-//           </div>
-//           <div className="flex-1">
-//             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-//               Day *
-//             </label>
-//             <select
-//               value={form.day}
-//               onChange={set("day")}
-//               className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-3 py-3 mt-1.5 text-white text-sm outline-none"
-//             >
-//               {days.map((d) => (
-//                 <option key={d} value={d}>
-//                   {d}
-//                 </option>
-//               ))}
-//             </select>
-//           </div>
-//         </div>
-
-//         {/* Sets + Reps */}
-//         <div className="flex gap-3">
-//           <div className="flex-1">
-//             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-//               Sets
-//             </label>
-//             <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-//               <input
-//                 type="number"
-//                 value={form.sets}
-//                 onChange={set("sets")}
-//                 className="bg-transparent outline-none text-white text-sm w-full"
-//               />
-//             </div>
-//           </div>
-//           <div className="flex-1">
-//             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-//               Reps
-//             </label>
-//             <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-//               <input
-//                 type="number"
-//                 value={form.reps}
-//                 onChange={set("reps")}
-//                 className="bg-transparent outline-none text-white text-sm w-full"
-//               />
-//             </div>
-//           </div>
-//         </div>
-
-//         {/* Tip */}
-//         <div>
-//           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-//             Beginner Tip
-//           </label>
-//           <div className="flex items-start gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-//             <span className="mt-0.5">💡</span>
-//             <textarea
-//               placeholder="e.g. Keep your back flat on the bench"
-//               value={form.tip}
-//               onChange={set("tip")}
-//               rows={2}
-//               className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600 resize-none"
-//             />
-//           </div>
-//         </div>
-
-//         {/* Submit */}
-//         <button
-//           onClick={handleUpload}
-//           disabled={!form.name || !file || uploading}
-//           className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
-//         >
-//           {uploading
-//             ? `⏳ Uploading... ${progress}%`
-//             : "📤 Publish to All Members"}
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default UploadVideo;
-
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  IoImageOutline,
+  IoVideocamOutline,
+  IoCheckmarkCircle,
+  IoBedOutline,
+} from "react-icons/io5";
+import { FiArrowLeft } from "react-icons/fi";
 import { apiFetch } from "../../lib/api";
+import { toast } from "../../lib/toast";
+
+const days = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+const muscleGroups = [
+  "Chest",
+  "Back",
+  "Shoulders",
+  "Biceps",
+  "Triceps",
+  "Legs",
+  "Core",
+  "Cardio",
+  "Full Body",
+];
+
+// XHR — fetch() has no upload-progress event, xhr.upload.onprogress
+// does, which is what drives the real % shown during upload
+function uploadToCloudinary(file, folder, onProgress) {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append(
+      "upload_preset",
+      import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
+    );
+    formData.append("folder", folder);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open(
+      "POST",
+      `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/${
+        file.type.startsWith("video") ? "video" : "image"
+      }/upload`,
+    );
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress((event.loaded / event.total) * 100);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText).secure_url);
+      } else {
+        reject(new Error("Upload failed. Please try again."));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error during upload."));
+    xhr.send(formData);
+  });
+}
+
+function FormSkeleton() {
+  return (
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-10">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-8 h-8 bg-white/5 rounded-lg animate-pulse" />
+        <div className="h-6 w-36 bg-white/5 rounded-lg animate-pulse" />
+      </div>
+      <div className="space-y-4">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-14 bg-white/5 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function UploadVideo() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditing = !!id;
 
+  const [loadingExisting, setLoadingExisting] = useState(isEditing);
   const [videoFile, setVideoFile] = useState(null);
+  const [videoPreview, setVideoPreview] = useState("");
+  const [existingVideoUrl, setExistingVideoUrl] = useState("");
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
+  const [existingThumbnailUrl, setExistingThumbnailUrl] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState("");
+  const [uploadStage, setUploadStage] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isRestDay, setIsRestDay] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -321,28 +108,45 @@ function UploadVideo() {
     tip: "",
   });
 
-  const days = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
-  const muscleGroups = [
-    "Chest",
-    "Back",
-    "Shoulders",
-    "Biceps",
-    "Triceps",
-    "Legs",
-    "Core",
-    "Cardio",
-    "Full Body",
-  ];
-
   const set = (key) => (e) => setForm((p) => ({ ...p, [key]: e.target.value }));
+
+  useEffect(() => {
+    if (!isEditing) return;
+    const fetchExisting = async () => {
+      setLoadingExisting(true);
+      try {
+        const res = await apiFetch(`/api/exercises/${id}`);
+        if (res.success && res.exercise) {
+          const ex = res.exercise;
+          setForm({
+            name: ex.name || "",
+            muscle_group: ex.muscle_group || "",
+            day: ex.day || "",
+            sets: ex.sets != null ? String(ex.sets) : "",
+            reps: ex.reps || "",
+            tip: ex.tip || "",
+          });
+          setIsRestDay(!ex.muscle_group && ex.sets == null && !ex.reps);
+          setExistingVideoUrl(ex.video_url || "");
+          setVideoPreview(ex.video_url || "");
+          setExistingThumbnailUrl(ex.thumbnail_url || "");
+          setThumbnailPreview(ex.thumbnail_url || "");
+        } else {
+          toast.error("Could not load this video");
+          navigate("/owner/videos");
+        }
+      } catch (err) {
+        // Network fail hone par (jaise backend down) bhi form hamesha
+        // ke liye skeleton mein atka nahi rehna chahiye
+        console.log("Fetch exercise error:", err);
+        toast.error("Couldn't reach the server. Please check your connection.");
+        navigate("/owner/videos");
+      } finally {
+        setLoadingExisting(false);
+      }
+    };
+    queueMicrotask(fetchExisting);
+  }, [id]);
 
   const handleThumbnailSelect = (e) => {
     const file = e.target.files[0];
@@ -351,84 +155,112 @@ function UploadVideo() {
     setThumbnailPreview(URL.createObjectURL(file));
   };
 
-  const uploadToCloudinary = async (file, folder) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append(
-      "upload_preset",
-      import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
-    );
-    formData.append("folder", folder);
+  const handleVideoSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/${
-        file.type.startsWith("video") ? "video" : "image"
-      }/upload`,
-      { method: "POST", body: formData },
-    );
-    const data = await res.json();
-    return data.secure_url;
+    if (!file.type.startsWith("video/")) {
+      toast.error("Please select a video file");
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("Video size should be less than 100MB");
+      return;
+    }
+
+    setVideoFile(file);
+    setVideoPreview(URL.createObjectURL(file));
   };
 
-  const handleUpload = async () => {
-    if (!videoFile || !form.name || !form.day) return;
+  const toggleRestDay = () => {
+    const next = !isRestDay;
+    setIsRestDay(next);
+    if (next) setForm((p) => ({ ...p, muscle_group: "", sets: "", reps: "" }));
+  };
+
+  const canSubmit =
+    form.name && form.day && !uploading && (isEditing || videoFile);
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
     setUploading(true);
 
     try {
-      // Upload thumbnail
-      let thumbnailUrl = null;
+      let thumbnailUrl = existingThumbnailUrl || null;
       if (thumbnailFile) {
-        setProgress("Uploading thumbnail...");
+        setUploadStage("thumbnail");
+        setUploadProgress(0);
         thumbnailUrl = await uploadToCloudinary(
           thumbnailFile,
           "gym_thumbnails",
+          setUploadProgress,
         );
       }
 
-      // Upload video
-      setProgress("Uploading video...");
-      const videoUrl = await uploadToCloudinary(videoFile, "gym_videos");
+      let videoUrl = existingVideoUrl || null;
+      if (videoFile) {
+        setUploadStage("video");
+        setUploadProgress(0);
+        videoUrl = await uploadToCloudinary(
+          videoFile,
+          "gym_videos",
+          setUploadProgress,
+        );
+      }
 
-      // Save - exercises table RLS-locked hai, owner-verified backend
-      // route se
-      setProgress("Saving...");
-      const res = await apiFetch("/api/exercises", {
-        method: "POST",
-        body: JSON.stringify({
-          name: form.name,
-          muscle_group: form.muscle_group,
-          day: form.day,
-          sets: form.sets,
-          reps: form.reps,
-          tip: form.tip,
-          video_url: videoUrl,
-          thumbnail_url: thumbnailUrl,
-        }),
-      });
+      setUploadStage("saving");
+      const payload = {
+        name: form.name,
+        day: form.day,
+        muscle_group: isRestDay ? null : form.muscle_group || null,
+        sets: isRestDay ? null : form.sets || null,
+        reps: isRestDay ? null : form.reps || null,
+        tip: form.tip || null,
+        video_url: videoUrl,
+        thumbnail_url: thumbnailUrl,
+      };
 
-      if (!res.success) throw new Error(res.error || res.message);
+      // exercises table RLS-locked hai, owner-verified backend route se
+      const res = isEditing
+        ? await apiFetch(`/api/exercises/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          })
+        : await apiFetch("/api/exercises", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
 
-      alert("✅ Video uploaded successfully!");
+      if (!res.success) throw new Error(res.error || res.message || "Failed to save");
+
+      toast.success(isEditing ? "Video updated!" : "Video uploaded!");
       navigate("/owner/videos");
     } catch (err) {
-      alert("Upload failed: " + err.message);
+      toast.error((isEditing ? "Update" : "Upload") + " failed: " + err.message);
     } finally {
       setUploading(false);
-      setProgress("");
+      setUploadStage("");
+      setUploadProgress(0);
     }
   };
 
+  if (loadingExisting) {
+    return <FormSkeleton />;
+  }
+
   return (
-    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-10">
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-24">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button
           onClick={() => navigate(-1)}
           className="w-8 h-8 bg-[#1a1a2e] border border-white/10 rounded-lg flex items-center justify-center text-white"
         >
-          ←
+          <FiArrowLeft size={15} />
         </button>
-        <h1 className="text-xl font-black text-white">Upload Video</h1>
+        <h1 className="text-xl font-extrabold text-white">
+          {isEditing ? "Edit Video" : "Upload Video"}
+        </h1>
       </div>
 
       <div className="space-y-4">
@@ -437,30 +269,23 @@ function UploadVideo() {
           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
             Thumbnail Image
           </label>
-          <label
-            htmlFor="thumbnail-upload"
-            className="block mt-1.5 cursor-pointer"
-          >
+          <label htmlFor="thumbnail-upload" className="block mt-1.5 cursor-pointer">
             {thumbnailPreview ? (
               <div className="relative">
                 <img
                   src={thumbnailPreview}
                   alt="Thumbnail"
-                  className="w-full h-48 object-cover rounded-xl"
+                  className="w-full h-32 object-cover rounded-xl"
                 />
-                <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                   <p className="text-white text-xs font-bold">Tap to change</p>
                 </div>
               </div>
             ) : (
-              <div className="w-full h-48 bg-[#1a1a2e] border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center">
-                <span className="text-4xl mb-2">🖼️</span>
-                <p className="text-slate-400 text-sm font-bold">
-                  Add Thumbnail
-                </p>
-                <p className="text-slate-600 text-xs mt-1">
-                  Recommended: 16:9 ratio
-                </p>
+              <div className="w-full h-32 bg-[#1a1a2e] border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-slate-500">
+                <IoImageOutline size={26} className="mb-1.5" />
+                <p className="text-slate-400 text-sm font-bold">Add Thumbnail</p>
+                <p className="text-slate-600 text-xs mt-1">Recommended: 16:9 ratio</p>
               </div>
             )}
           </label>
@@ -476,36 +301,46 @@ function UploadVideo() {
         {/* Video Upload */}
         <div>
           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Video File *
+            Video File {isEditing ? "" : "*"}
           </label>
-          <label htmlFor="video-upload" className="block mt-1.5 cursor-pointer">
-            <div
-              className={`w-full p-4 rounded-xl border-2 border-dashed flex items-center gap-3 ${
-                videoFile
-                  ? "bg-purple-600/10 border-purple-500/30"
-                  : "bg-[#1a1a2e] border-white/10"
-              }`}
-            >
-              <span className="text-3xl">🎥</span>
-              <div>
-                <p className="text-white text-sm font-bold">
-                  {videoFile ? videoFile.name : "Choose Video"}
-                </p>
-                <p className="text-slate-500 text-xs mt-0.5">
-                  {videoFile
-                    ? `${(videoFile.size / 1024 / 1024).toFixed(1)} MB`
-                    : "MP4, MOV supported"}
-                </p>
-              </div>
+
+          {videoPreview ? (
+            <div className="relative rounded-xl overflow-hidden bg-black mt-1.5">
+              <video
+                src={videoPreview}
+                controls
+                className="w-full"
+                style={{ maxHeight: 220 }}
+              />
+              <label
+                htmlFor="video-upload"
+                className="absolute top-2 right-2 bg-black/70 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg cursor-pointer"
+              >
+                Replace
+              </label>
             </div>
-          </label>
+          ) : (
+            <label htmlFor="video-upload" className="block mt-1.5 cursor-pointer">
+              <div className="w-full h-32 bg-[#1a1a2e] border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-slate-500">
+                <IoVideocamOutline size={26} className="mb-1.5" />
+                <p className="text-white text-sm font-bold">Choose Video</p>
+                <p className="text-slate-500 text-xs mt-1">MP4, MOV · Max 100MB</p>
+              </div>
+            </label>
+          )}
           <input
             id="video-upload"
             type="file"
             accept="video/*"
-            onChange={(e) => setVideoFile(e.target.files[0])}
+            onChange={handleVideoSelect}
             className="hidden"
           />
+          {videoFile && (
+            <p className="text-slate-500 text-[11px] mt-1.5 flex items-center gap-1">
+              <IoCheckmarkCircle size={12} className="text-emerald-400" />
+              {videoFile.name} · {(videoFile.size / 1024 / 1024).toFixed(1)} MB
+            </p>
+          )}
         </div>
 
         {/* Exercise Name */}
@@ -514,9 +349,9 @@ function UploadVideo() {
             Exercise Name *
           </label>
           <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>💪</span>
+            <IoVideocamOutline size={15} className="text-slate-500" />
             <input
-              placeholder="e.g. Bench Press"
+              placeholder="e.g. Bench Press or Rest Day"
               value={form.name}
               onChange={set("name")}
               className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600"
@@ -543,51 +378,86 @@ function UploadVideo() {
           </select>
         </div>
 
-        {/* Muscle Group */}
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Muscle Group
-          </label>
-          <select
-            value={form.muscle_group}
-            onChange={set("muscle_group")}
-            className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5 text-white text-sm outline-none"
+        {/* Rest Day toggle */}
+        <button
+          onClick={toggleRestDay}
+          className={`w-full flex items-center gap-3 rounded-xl border p-3 transition-colors ${
+            isRestDay
+              ? "bg-violet-600/15 border-violet-500/40"
+              : "bg-[#1a1a2e] border-white/10"
+          }`}
+        >
+          <div
+            className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+              isRestDay ? "bg-violet-500/20 text-violet-400" : "bg-white/5 text-slate-500"
+            }`}
           >
-            <option value="">Select Muscle Group</option>
-            {muscleGroups.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
+            <IoBedOutline size={17} />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-white text-sm font-bold">Rest Day</p>
+            <p className="text-slate-500 text-xs mt-0.5">
+              No sets, reps, or muscle group needed
+            </p>
+          </div>
+          <div
+            className={`w-10 h-6 rounded-full flex items-center px-0.5 flex-shrink-0 transition-colors ${
+              isRestDay ? "bg-violet-600 justify-end" : "bg-white/10 justify-start"
+            }`}
+          >
+            <div className="w-5 h-5 rounded-full bg-white" />
+          </div>
+        </button>
 
-        {/* Sets + Reps */}
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Sets
-            </label>
-            <input
-              type="number"
-              placeholder="3"
-              value={form.sets}
-              onChange={set("sets")}
-              className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5 text-white text-sm outline-none"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Reps
-            </label>
-            <input
-              placeholder="10-12"
-              value={form.reps}
-              onChange={set("reps")}
-              className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5 text-white text-sm outline-none"
-            />
-          </div>
-        </div>
+        {!isRestDay && (
+          <>
+            {/* Muscle Group */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Muscle Group
+              </label>
+              <select
+                value={form.muscle_group}
+                onChange={set("muscle_group")}
+                className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5 text-white text-sm outline-none"
+              >
+                <option value="">Select Muscle Group</option>
+                {muscleGroups.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sets + Reps */}
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Sets
+                </label>
+                <input
+                  type="number"
+                  placeholder="3"
+                  value={form.sets}
+                  onChange={set("sets")}
+                  className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5 text-white text-sm outline-none"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Reps
+                </label>
+                <input
+                  placeholder="10-12"
+                  value={form.reps}
+                  onChange={set("reps")}
+                  className="w-full bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5 text-white text-sm outline-none"
+                />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Tip */}
         <div>
@@ -603,19 +473,45 @@ function UploadVideo() {
           />
         </div>
 
-        {/* Upload Button */}
-        {progress && (
-          <div className="bg-purple-600/10 border border-purple-500/20 rounded-xl p-3 text-center">
-            <p className="text-purple-400 text-sm font-bold">⏳ {progress}</p>
+        {/* Upload Progress */}
+        {uploading && (
+          <div className="bg-[#1a1a2e] border border-violet-500/20 rounded-xl p-3">
+            <div className="flex justify-between mb-1.5">
+              <p className="text-slate-400 text-xs">
+                {uploadStage === "thumbnail" && "Uploading thumbnail..."}
+                {uploadStage === "video" && "Uploading video..."}
+                {uploadStage === "saving" && "Saving..."}
+              </p>
+              {uploadStage !== "saving" && (
+                <p className="text-violet-400 text-xs font-bold">
+                  {uploadProgress.toFixed(0)}%
+                </p>
+              )}
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-violet-600 rounded-full transition-all duration-150"
+                style={{
+                  width: `${uploadStage === "saving" ? 100 : uploadProgress}%`,
+                }}
+              />
+            </div>
           </div>
         )}
 
         <button
-          onClick={handleUpload}
-          disabled={!videoFile || !form.name || !form.day || uploading}
-          className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          className="w-full bg-violet-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {uploading ? "⏳ Uploading..." : "🎥 Upload Video"}
+          {uploading ? (
+            "Saving..."
+          ) : (
+            <>
+              <IoCheckmarkCircle size={16} />
+              {isEditing ? "Save Changes" : "Upload Video"}
+            </>
+          )}
         </button>
       </div>
     </div>
