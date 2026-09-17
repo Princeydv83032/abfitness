@@ -1,7 +1,50 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  IoBusinessOutline,
+  IoTimeOutline,
+  IoCashOutline,
+  IoLocationOutline,
+  IoNotificationsOutline,
+  IoNavigateOutline,
+  IoCheckmarkCircle,
+  IoWarningOutline,
+  IoShieldCheckmarkOutline,
+} from "react-icons/io5";
+import { FiClock, FiCalendar, FiLogOut, FiTrash2, FiSave } from "react-icons/fi";
 import { apiFetch } from "../../lib/api";
 import useAuthStore from "../../store/authStore";
+import { toast } from "../../lib/toast";
+
+const PLAN_ICONS = { monthly: FiCalendar, quarterly: FiClock, yearly: IoTimeOutline };
+
+function SettingsSkeleton() {
+  return (
+    <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
+      <div className="h-7 w-28 bg-white/5 rounded-lg animate-pulse mb-4" />
+      <div className="h-24 bg-white/5 rounded-2xl animate-pulse mb-5" />
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="mb-5">
+          <div className="h-3.5 w-24 bg-white/5 rounded animate-pulse mb-2" />
+          <div className="h-28 bg-white/5 rounded-2xl animate-pulse" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, label }) {
+  return (
+    <div className="flex items-center gap-2 mb-2">
+      <div className="w-7 h-7 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 flex-shrink-0">
+        <Icon size={14} />
+      </div>
+      <p className="text-slate-300 text-xs font-bold uppercase tracking-wider">
+        {label}
+      </p>
+    </div>
+  );
+}
 
 function Settings() {
   const navigate = useNavigate();
@@ -11,12 +54,9 @@ function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [qrUploading, setQrUploading] = useState(false);
 
   const [gymName, setGymName] = useState("");
   const [timing, setTiming] = useState("");
-  const [upiId, setUpiId] = useState("");
-  const [qrUrl, setQrUrl] = useState("");
 
   const [gymLat, setGymLat] = useState("");
   const [gymLng, setGymLng] = useState("");
@@ -51,17 +91,13 @@ function Settings() {
         return;
       }
       setLoading(false);
-      alert(
-        "⚠️ Gym settings load nahi ho paayi. Please page reload karo aur dobara try karo.",
-      );
+      toast.error("Gym settings load nahi ho paayi. Please reload karo.");
       return;
     }
 
     const data = res.owner;
     setGymName(data.gym_name || "");
     setTiming(data.timing || "5:00 AM - 10:00 PM");
-    setUpiId(data.upi_id || "");
-    setQrUrl(data.upi_qr_url || "");
     setGymLat(data.gym_lat || "");
     setGymLng(data.gym_lng || "");
     setGeoRadius(data.geo_radius || 100);
@@ -75,50 +111,10 @@ function Settings() {
     queueMicrotask(() => fetchSettings());
   }, []);
 
-  const handleQRUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setQrUploading(true);
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append(
-      "upload_preset",
-      import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET,
-    );
-    formData.append("folder", "gym_qr");
-
-    try {
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: "POST", body: formData },
-      );
-      const data = await res.json();
-
-      if (!data.secure_url) {
-        alert("Upload failed");
-        return;
-      }
-
-      setQrUrl(data.secure_url);
-
-      await apiFetch("/api/owner/me", {
-        method: "PATCH",
-        body: JSON.stringify({ upi_qr_url: data.secure_url }),
-      });
-
-      alert("✅ QR Code uploaded!");
-    } catch (err) {
-      alert("Upload failed: " + err.message);
-    } finally {
-      setQrUploading(false);
-    }
-  };
-
   const detectLocation = () => {
     setLocating(true);
     if (!navigator.geolocation) {
-      alert("Location not supported");
+      toast.error("Location not supported");
       setLocating(false);
       return;
     }
@@ -127,10 +123,10 @@ function Settings() {
         setGymLat(pos.coords.latitude);
         setGymLng(pos.coords.longitude);
         setLocating(false);
-        alert("✅ Gym location captured! Save karo.");
+        toast.success("Gym location captured! Save to apply.");
       },
-      (err) => {
-        alert("Location access denied");
+      () => {
+        toast.error("Location access denied");
         setLocating(false);
       },
       { enableHighAccuracy: true },
@@ -146,7 +142,6 @@ function Settings() {
       body: JSON.stringify({
         gym_name: gymName,
         timing: timing,
-        upi_id: upiId,
         gym_lat: gymLat || null,
         gym_lng: gymLng || null,
         geo_radius: geoRadius || 100,
@@ -158,7 +153,7 @@ function Settings() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } else {
-      alert("Save failed: " + (res.error || res.message || "Unknown error"));
+      toast.error("Save failed: " + (res.error || res.message || "Unknown error"));
     }
     setSaving(false);
   };
@@ -172,44 +167,38 @@ function Settings() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin"></div>
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   return (
     <div className="min-h-screen bg-[#0d0d14] px-4 pt-12 pb-20">
-      <h1 className="text-2xl font-black text-white mb-4">Settings</h1>
+      <h1 className="text-2xl font-extrabold text-white mb-4">Settings</h1>
 
       {/* Gym Profile */}
-      <div className="bg-[#1a1a2e] border border-purple-500/30 rounded-2xl p-4 flex items-center gap-4 mb-5">
-        <div className="w-14 h-14 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-black flex-shrink-0">
+      <div className="rounded-2xl p-4 mb-5 bg-gradient-to-br from-violet-700 via-violet-600 to-indigo-700 border border-violet-400/20 flex items-center gap-4">
+        <div className="w-14 h-14 rounded-full bg-white/15 border-2 border-white/20 flex items-center justify-center text-white text-2xl font-extrabold flex-shrink-0">
           {gymName?.[0] || "A"}
         </div>
-        <div>
-          <h2 className="text-white font-black text-lg">{gymName}</h2>
-          <p className="text-slate-400 text-xs mt-0.5">
+        <div className="min-w-0">
+          <h2 className="text-white font-extrabold text-lg truncate">{gymName}</h2>
+          <p className="text-white/60 text-xs mt-0.5">
             Owner · +91 {user?.phone || "--"}
           </p>
-          <span className="bg-purple-600/20 text-purple-400 text-xs font-bold px-2 py-0.5 rounded-full mt-1 inline-block">
-            👑 Admin
+          <span className="bg-white/15 text-white text-[10px] font-bold px-2 py-0.5 rounded-full mt-1.5 inline-flex items-center gap-1">
+            <IoShieldCheckmarkOutline size={11} /> Admin
           </span>
         </div>
       </div>
 
       {/* Gym Info */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-        Gym Info
-      </p>
-      <div className="space-y-3 mb-5">
+      <SectionHeader icon={IoBusinessOutline} label="Gym Info" />
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-2xl p-3.5 space-y-3 mb-5">
         <div>
           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
             Gym Name
           </label>
-          <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>🏋️</span>
+          <div className="flex items-center gap-2 bg-[#0d0d14] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
+            <IoBusinessOutline size={14} className="text-slate-500" />
             <input
               value={gymName}
               onChange={(e) => setGymName(e.target.value)}
@@ -222,8 +211,8 @@ function Settings() {
           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
             Timing
           </label>
-          <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>⏰</span>
+          <div className="flex items-center gap-2 bg-[#0d0d14] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
+            <FiClock size={14} className="text-slate-500" />
             <input
               value={timing}
               onChange={(e) => setTiming(e.target.value)}
@@ -235,132 +224,71 @@ function Settings() {
       </div>
 
       {/* Membership Fees */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-        Membership Fees
-      </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl mb-5">
+      <SectionHeader icon={IoCashOutline} label="Membership Fees" />
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-2xl mb-5">
         {[
           { key: "monthly", label: "Monthly Plan" },
           { key: "quarterly", label: "Quarterly Plan" },
           { key: "yearly", label: "Yearly Plan" },
-        ].map((item, i, arr) => (
-          <div
-            key={item.key}
-            className={`flex justify-between items-center px-4 py-3
-              ${i !== arr.length - 1 ? "border-b border-white/5" : ""}`}
-          >
-            <span className="text-slate-300 text-sm">{item.label}</span>
-            <div className="flex items-center gap-1">
-              <span className="text-slate-400 text-sm">₹</span>
-              <input
-                type="number"
-                value={fees[item.key]}
-                onChange={(e) =>
-                  setFees((prev) => ({
-                    ...prev,
-                    [item.key]: parseInt(e.target.value) || 0,
-                  }))
-                }
-                className="bg-transparent outline-none text-white text-sm font-bold w-20 text-right"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* UPI Payment */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-        UPI Payment
-      </p>
-      <div className="space-y-3 mb-5">
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            UPI ID
-          </label>
-          <div className="flex items-center gap-2 bg-[#1a1a2e] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>📱</span>
-            <input
-              placeholder="yourname@upi"
-              value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-              className="bg-transparent outline-none text-white text-sm flex-1 placeholder:text-slate-600"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            UPI QR Code
-          </label>
-          <div className="mt-1.5">
-            {qrUrl ? (
-              <div className="text-center bg-[#1a1a2e] border border-white/10 rounded-2xl p-4">
-                <img
-                  src={qrUrl}
-                  alt="UPI QR"
-                  className="w-48 h-48 object-contain bg-white rounded-xl p-2 mx-auto"
+        ].map((item, i, arr) => {
+          const PlanIcon = PLAN_ICONS[item.key];
+          return (
+            <div
+              key={item.key}
+              className={`flex justify-between items-center px-4 py-3
+                ${i !== arr.length - 1 ? "border-b border-white/5" : ""}`}
+            >
+              <span className="text-slate-300 text-sm flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 flex-shrink-0">
+                  <PlanIcon size={13} />
+                </div>
+                {item.label}
+              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-400 text-sm">₹</span>
+                <input
+                  type="number"
+                  value={fees[item.key]}
+                  onChange={(e) =>
+                    setFees((prev) => ({
+                      ...prev,
+                      [item.key]: parseInt(e.target.value) || 0,
+                    }))
+                  }
+                  className="bg-transparent outline-none text-white text-sm font-bold w-20 text-right"
                 />
-                <p className="text-slate-400 text-xs mt-2">
-                  Members will scan this to pay
-                </p>
-                <label
-                  htmlFor="qr-upload"
-                  className="block text-center mt-2 text-purple-400 text-xs font-bold cursor-pointer"
-                >
-                  ✏️ Change QR Code
-                </label>
               </div>
-            ) : (
-              <label
-                htmlFor="qr-upload"
-                className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-white/10 rounded-xl bg-[#1a1a2e] cursor-pointer"
-              >
-                <div className="text-3xl mb-2">📷</div>
-                <p className="text-slate-400 text-sm">
-                  {qrUploading ? "⏳ Uploading..." : "Tap to upload QR code"}
-                </p>
-                <p className="text-slate-500 text-xs mt-1">
-                  Members will scan this to pay
-                </p>
-              </label>
-            )}
-            <input
-              id="qr-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleQRUpload}
-              className="hidden"
-            />
-          </div>
-        </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Geo-fencing */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-        📍 Attendance Location
-      </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl p-4 mb-5">
+      {/* Attendance Location */}
+      <SectionHeader icon={IoLocationOutline} label="Attendance Location" />
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-2xl p-4 mb-5">
         {/* Status */}
         {gymLat && gymLng ? (
-          <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 mb-3">
-            <p className="text-green-400 text-xs font-bold">
-              ✅ Gym Location Set
-            </p>
-            <p className="text-slate-400 text-xs mt-1">
-              {parseFloat(gymLat).toFixed(6)}, {parseFloat(gymLng).toFixed(6)}
-            </p>
-            <p className="text-slate-500 text-xs mt-0.5">
-              Members can only check-in within {geoRadius}m
-            </p>
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-3 flex items-center gap-2">
+            <IoCheckmarkCircle size={16} className="text-emerald-400 flex-shrink-0" />
+            <div>
+              <p className="text-emerald-400 text-xs font-bold">Gym Location Set</p>
+              <p className="text-slate-400 text-xs mt-1">
+                {parseFloat(gymLat).toFixed(6)}, {parseFloat(gymLng).toFixed(6)}
+              </p>
+              <p className="text-slate-500 text-xs mt-0.5">
+                Members can only check-in within {geoRadius}m
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-3">
-            <p className="text-amber-400 text-xs font-bold">
-              ⚠️ Location Not Set
-            </p>
-            <p className="text-slate-400 text-xs mt-1">
-              Members can check-in from anywhere
-            </p>
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-3 flex items-center gap-2">
+            <IoWarningOutline size={16} className="text-amber-400 flex-shrink-0" />
+            <div>
+              <p className="text-amber-400 text-xs font-bold">Location Not Set</p>
+              <p className="text-slate-400 text-xs mt-1">
+                Members can check-in from anywhere
+              </p>
+            </div>
           </div>
         )}
 
@@ -370,7 +298,7 @@ function Settings() {
             Allowed Radius
           </label>
           <div className="flex items-center gap-2 bg-[#0d0d14] border border-white/10 rounded-xl px-4 py-3 mt-1.5">
-            <span>📏</span>
+            <IoLocationOutline size={14} className="text-slate-500" />
             <input
               type="number"
               value={geoRadius}
@@ -385,11 +313,10 @@ function Settings() {
         <button
           onClick={detectLocation}
           disabled={locating}
-          className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50"
+          className="w-full bg-violet-600 text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {locating
-            ? "⏳ Detecting location..."
-            : "📍 Set Current Location as Gym"}
+          <IoNavigateOutline size={15} />
+          {locating ? "Detecting location..." : "Set Current Location as Gym"}
         </button>
 
         {/* Remove Location */}
@@ -399,18 +326,16 @@ function Settings() {
               setGymLat("");
               setGymLng("");
             }}
-            className="w-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold py-2.5 rounded-xl text-xs mt-2"
+            className="w-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold py-2.5 rounded-xl text-xs mt-2 flex items-center justify-center gap-1.5"
           >
-            🗑️ Remove Location Restriction
+            <FiTrash2 size={12} /> Remove Location Restriction
           </button>
         )}
       </div>
 
       {/* Notifications */}
-      <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-        Notifications
-      </p>
-      <div className="bg-[#1a1a2e] border border-white/7 rounded-xl mb-5">
+      <SectionHeader icon={IoNotificationsOutline} label="Notifications" />
+      <div className="bg-[#1a1a2e] border border-white/7 rounded-2xl mb-5">
         {[
           {
             key: "expiryAlerts",
@@ -437,39 +362,41 @@ function Settings() {
               <p className="text-white text-sm font-semibold">{item.label}</p>
               <p className="text-slate-500 text-xs mt-0.5">{item.sub}</p>
             </div>
-            <div
+            <button
               onClick={() => toggleNotif(item.key)}
-              className={`w-11 h-6 rounded-full relative cursor-pointer transition-all
-                ${notifications[item.key] ? "bg-purple-600" : "bg-white/10 border border-white/10"}`}
+              className={`w-11 h-6 rounded-full relative transition-colors flex-shrink-0
+                ${notifications[item.key] ? "bg-violet-600" : "bg-white/10 border border-white/10"}`}
             >
               <div
                 className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all
                 ${notifications[item.key] ? "right-1" : "left-1"}`}
               />
-            </div>
+            </button>
           </div>
         ))}
       </div>
 
       {success && (
-        <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-3 mb-4 text-center">
-          <p className="text-green-400 font-bold text-sm">✅ Settings saved!</p>
+        <div className="bg-emerald-500/15 border border-emerald-500/30 rounded-xl p-3 mb-4 text-center flex items-center justify-center gap-2">
+          <IoCheckmarkCircle size={15} className="text-emerald-400" />
+          <p className="text-emerald-400 font-bold text-sm">Settings saved!</p>
         </div>
       )}
 
       <button
         onClick={handleSave}
         disabled={saving}
-        className="w-full bg-purple-600 text-white font-bold py-3 rounded-xl text-sm mb-3 disabled:opacity-50"
+        className="w-full bg-violet-600 text-white font-bold py-3 rounded-xl text-sm mb-3 disabled:opacity-50 flex items-center justify-center gap-2"
       >
-        {saving ? "⏳ Saving..." : "💾 Save Changes"}
+        <FiSave size={15} />
+        {saving ? "Saving..." : "Save Changes"}
       </button>
 
       <button
         onClick={handleLogout}
-        className="w-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold py-3 rounded-xl text-sm"
+        className="w-full bg-red-500/10 border border-red-500/20 text-red-400 font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2"
       >
-        Log Out
+        <FiLogOut size={15} /> Log Out
       </button>
     </div>
   );
