@@ -19,34 +19,50 @@ import "react-toastify/dist/ReactToastify.css";
 // baaki baad mein (ya kabhi nahi, agar member ne Owner ke pages kabhi
 // visit hi na kiye)
 
+// Bottom-nav wale tabs ke import functions alag rakhe hain taaki inhe
+// prefetch bhi kiya ja sake (neeche RoutePrefetcher dekho) - lazy() ko
+// wahi function dobara dena safe hai, bundler ise ek hi baar load karta
+// hai aur baad mein cached promise wapas kar deta hai
+const importHome = () => import("./pages/member/Home");
+const importWorkout = () => import("./pages/member/Workout");
+const importDiet = () => import("./pages/member/Diet");
+const importAttendance = () => import("./pages/member/Attendance");
+const importProfile = () => import("./pages/member/Profile");
+
+const importOwnerDashboard = () => import("./pages/owner/OwnerDashboard");
+const importMembersList = () => import("./pages/owner/MembersList");
+const importOwnerPayments = () => import("./pages/owner/OwnerPayments");
+const importVideos = () => import("./pages/owner/Videos");
+const importSettings = () => import("./pages/owner/Settings");
+
 // Member Pages
 const Splash = lazy(() => import("./pages/member/Splash"));
 const Login = lazy(() => import("./pages/member/Login"));
 const Register = lazy(() => import("./pages/member/Register"));
 const PendingApproval = lazy(() => import("./pages/member/PendingApproval"));
-const Home = lazy(() => import("./pages/member/Home"));
-const Workout = lazy(() => import("./pages/member/Workout"));
-const Attendance = lazy(() => import("./pages/member/Attendance"));
+const Home = lazy(importHome);
+const Workout = lazy(importWorkout);
+const Attendance = lazy(importAttendance);
 const Payments = lazy(() => import("./pages/member/Payments"));
-const Profile = lazy(() => import("./pages/member/Profile"));
-const Diet = lazy(() => import("./pages/member/Diet"));
+const Profile = lazy(importProfile);
+const Diet = lazy(importDiet);
 const Progress = lazy(() => import("./pages/member/Progress"));
 const CalorieCounter = lazy(() => import("./pages/member/CalorieCounter"));
 
 // Owner Pages
 const OwnerLogin = lazy(() => import("./pages/owner/OwnerLogin"));
-const OwnerDashboard = lazy(() => import("./pages/owner/OwnerDashboard"));
-const MembersList = lazy(() => import("./pages/owner/MembersList"));
+const OwnerDashboard = lazy(importOwnerDashboard);
+const MembersList = lazy(importMembersList);
 const AddMember = lazy(() => import("./pages/owner/AddMember"));
 const MemberDetail = lazy(() => import("./pages/owner/MemberDetail"));
 const EditMember = lazy(() => import("./pages/owner/EditMember"));
 const LogPayment = lazy(() => import("./pages/owner/LogPayment"));
-const OwnerPayments = lazy(() => import("./pages/owner/OwnerPayments"));
+const OwnerPayments = lazy(importOwnerPayments);
 const OwnerAttendance = lazy(() => import("./pages/owner/OwnerAttendance"));
-const Videos = lazy(() => import("./pages/owner/Videos"));
+const Videos = lazy(importVideos);
 const UploadVideo = lazy(() => import("./pages/owner/UploadVideo"));
 const Reports = lazy(() => import("./pages/owner/Reports"));
-const Settings = lazy(() => import("./pages/owner/Settings"));
+const Settings = lazy(importSettings);
 
 // Components — chhote, hamesha-zaroori UI chrome hain, inhe lazy karne
 // ka koi fayda nahi (Suspense flicker add karega bina kisi bundle-size
@@ -62,6 +78,56 @@ function RouteLoader() {
       <div className="w-8 h-8 border-2 border-white/20 border-t-violet-500 rounded-full animate-spin"></div>
     </div>
   );
+}
+
+// ── Route Prefetcher ────────────────────────────────────
+// Login ke baad, jab browser idle ho, saare bottom-nav tabs ka JS chunk
+// chup-chaap pehle hi download kar lo. Isse tab switch karte waqt
+// network ka wait hi nahi hota - chunk already memory mein hota hai,
+// page turant render ho jaata hai (RouteLoader spinner dikhta hi nahi)
+function RoutePrefetcher() {
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const role = useAuthStore((s) => s.role);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const tabs =
+      role === "owner"
+        ? [
+            importOwnerDashboard,
+            importMembersList,
+            importOwnerPayments,
+            importVideos,
+            importSettings,
+          ]
+        : [
+            importHome,
+            importWorkout,
+            importDiet,
+            importAttendance,
+            importProfile,
+          ];
+
+    // requestIdleCallback har browser mein nahi hai (Safari), isliye
+    // fallback - dono case mein ye kaam current render ko block nahi karta
+    const runWhenIdle =
+      window.requestIdleCallback || ((cb) => setTimeout(cb, 300));
+    const cancelIdle = window.cancelIdleCallback || clearTimeout;
+
+    const handle = runWhenIdle(() => {
+      tabs.forEach((load) => {
+        load().catch(() => {
+          // Prefetch fail hona koi badi baat nahi - jab user actually us
+          // tab pe jaayega tab lazy() khud dobara try karega
+        });
+      });
+    });
+
+    return () => cancelIdle(handle);
+  }, [isLoggedIn, role]);
+
+  return null;
 }
 
 // ── Back Button Handler ─────────────────────────────────
@@ -180,6 +246,7 @@ function App() {
         toastClassName="!bg-[#1a1a2e] !border !border-white/10 !rounded-xl"
       />
       <BackButtonHandler />
+      <RoutePrefetcher />
 
       <Suspense fallback={<RouteLoader />}>
       <Routes>

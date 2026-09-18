@@ -13,6 +13,7 @@ import {
 } from "react-icons/io5";
 import { FiClock, FiCalendar, FiLogOut, FiTrash2, FiSave } from "react-icons/fi";
 import { apiFetch } from "../../lib/api";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 import useAuthStore from "../../store/authStore";
 import { toast } from "../../lib/toast";
 
@@ -51,31 +52,38 @@ function Settings() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  const [loading, setLoading] = useState(true);
+  // Tab wapas aane par cached settings turant - skeleton sirf pehli baar
+  const cached = getCache("ownerSettings");
+  const [loading, setLoading] = useState(!cached);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const [gymName, setGymName] = useState("");
-  const [timing, setTiming] = useState("");
+  const [gymName, setGymName] = useState(cached?.gym_name || "");
+  const [timing, setTiming] = useState(cached?.timing || "");
 
-  const [gymLat, setGymLat] = useState("");
-  const [gymLng, setGymLng] = useState("");
-  const [geoRadius, setGeoRadius] = useState(100);
+  const [gymLat, setGymLat] = useState(cached?.gym_lat || "");
+  const [gymLng, setGymLng] = useState(cached?.gym_lng || "");
+  const [geoRadius, setGeoRadius] = useState(cached?.geo_radius || 100);
   const [locating, setLocating] = useState(false);
 
-  const [fees, setFees] = useState({
-    monthly: 1500,
-    quarterly: 4000,
-    yearly: 15000,
-  });
-  const [notifications, setNotifications] = useState({
-    expiryAlerts: true,
-    dailySummary: true,
-    newMemberAlert: false,
-  });
+  const [fees, setFees] = useState(
+    cached?.settings?.fees || {
+      monthly: 1500,
+      quarterly: 4000,
+      yearly: 15000,
+    },
+  );
+  const [notifications, setNotifications] = useState(
+    cached?.settings?.notifications || {
+      expiryAlerts: true,
+      dailySummary: true,
+      newMemberAlert: false,
+    },
+  );
 
   const fetchSettings = async (retrying = false) => {
-    setLoading(true);
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache("ownerSettings")) setLoading(true);
     // owner table RLS-locked hai - verifyOwner middleware token se row match
     // karke deta hai
     const res = await apiFetch("/api/owner/me");
@@ -96,6 +104,7 @@ function Settings() {
     }
 
     const data = res.owner;
+    setCache("ownerSettings", data);
     setGymName(data.gym_name || "");
     setTiming(data.timing || "5:00 AM - 10:00 PM");
     setGymLat(data.gym_lat || "");

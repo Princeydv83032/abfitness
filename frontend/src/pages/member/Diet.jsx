@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "../../lib/api";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 import useAuthStore from "../../store/authStore";
 import { FiTrash2, FiPlus, FiCheck, FiClock } from "react-icons/fi";
 import {
@@ -567,13 +568,17 @@ function DietSkeleton() {
 function Diet() {
   const user = useAuthStore((state) => state.user);
 
-  const [isVeg, setIsVeg] = useState(true);
-  const [selectedGoal, setSelectedGoal] = useState("General Fitness");
-  const [loading, setLoading] = useState(true);
+  // Tab wapas aane par cached data turant - skeleton sirf pehli baar
+  const cached = getCache("diet");
+  const [isVeg, setIsVeg] = useState(cached?.isVeg ?? true);
+  const [selectedGoal, setSelectedGoal] = useState(
+    cached?.selectedGoal ?? "General Fitness",
+  );
+  const [loading, setLoading] = useState(!cached);
   const [activeDay, setActiveDay] = useState("Monday");
 
   // Custom diet
-  const [customMeals, setCustomMeals] = useState([]);
+  const [customMeals, setCustomMeals] = useState(cached?.customMeals ?? []);
   const [newMealName, setNewMealName] = useState("");
   const [newMealItems, setNewMealItems] = useState("");
   const [newMealTime, setNewMealTime] = useState("");
@@ -581,7 +586,8 @@ function Diet() {
   const [savingCustom, setSavingCustom] = useState(false);
 
   const fetchMember = async () => {
-    setLoading(true);
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache("diet")) setLoading(true);
     const res = await apiFetch("/api/members/me");
     const data = res.success ? res.member : null;
 
@@ -589,6 +595,11 @@ function Diet() {
       setIsVeg(data.is_veg !== false);
       setSelectedGoal(data.goal || "General Fitness");
       if (data.custom_diet) setCustomMeals(data.custom_diet);
+      setCache("diet", {
+        isVeg: data.is_veg !== false,
+        selectedGoal: data.goal || "General Fitness",
+        customMeals: data.custom_diet || [],
+      });
     }
     setLoading(false);
   };

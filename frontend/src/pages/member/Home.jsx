@@ -5,6 +5,7 @@ import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
 import { initNotifications } from "../../lib/notifications";
 import { toast } from "../../lib/toast";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 import {
   FiBell,
   FiX,
@@ -97,9 +98,12 @@ function Home() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const { streak } = useStreak(user?.id);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [weekPlan, setWeekPlan] = useState({});
+  // Tab wapas aane par cached data turant dikhao - skeleton sirf pehli
+  // baar. Fresh data background mein aakar chup-chaap update kar dega
+  const cached = getCache("home");
+  const [data, setData] = useState(cached?.data ?? null);
+  const [loading, setLoading] = useState(!cached);
+  const [weekPlan, setWeekPlan] = useState(cached?.weekPlan ?? {});
   // WhatsApp jaisa 2-stage preview: pehle tap se "medium" circle, usko tap
   // karne se "full" size photo
   const [photoView, setPhotoView] = useState(null); // null | "medium" | "full"
@@ -114,7 +118,8 @@ function Home() {
   };
 
   const fetchMemberData = async () => {
-    setLoading(true);
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache("home")) setLoading(true);
     const month = new Date().toISOString().slice(0, 7);
     const todayDate = new Date().toISOString().split("T")[0];
 
@@ -138,7 +143,7 @@ function Home() {
     const daysLeft = Math.ceil(
       (new Date(member.expires_at) - new Date()) / (1000 * 60 * 60 * 24),
     );
-    setData({
+    const nextData = {
       ...member,
       daysLeft: Math.max(0, daysLeft),
       attendance: attendance || 0,
@@ -148,7 +153,9 @@ function Home() {
         month: "short",
         year: "numeric",
       }),
-    });
+    };
+    setData(nextData);
+    setCache("home", { ...getCache("home"), data: nextData });
     setLoading(false);
   };
 
@@ -176,6 +183,7 @@ function Home() {
       }
     });
     setWeekPlan(grouped);
+    setCache("home", { ...getCache("home"), weekPlan: grouped });
   };
 
   useEffect(() => {

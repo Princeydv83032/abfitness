@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { apiFetch } from "../../lib/api";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 import { FiX, FiPlay } from "react-icons/fi";
 import { IoMoonOutline, IoBulbOutline, IoBarbellOutline } from "react-icons/io5";
 
@@ -43,15 +44,27 @@ function Workout() {
   const [selectedDay, setSelectedDay] = useState(
     location.state?.day || todayName,
   );
-  const [exercises, setExercises] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Har din ka apna cache - tab wapas aane par aur day switch karne par
+  // dono jagah turant data dikhta hai, skeleton sirf pehli baar
+  const [exercises, setExercises] = useState(
+    () => getCache(`workout:${location.state?.day || todayName}`) ?? [],
+  );
+  const [loading, setLoading] = useState(
+    () => !hasCache(`workout:${location.state?.day || todayName}`),
+  );
   const [playing, setPlaying] = useState(null);
 
   const fetchExercises = async (day) => {
-    setLoading(true);
+    const key = `workout:${day}`;
+    if (hasCache(key)) setExercises(getCache(key));
+    else setLoading(true);
+
     // exercises table RLS-locked hai - verifyMember token se deta hai
     const res = await apiFetch(`/api/exercises/day/${day}`);
-    if (res.success) setExercises(res.exercises);
+    if (res.success) {
+      setExercises(res.exercises);
+      setCache(key, res.exercises);
+    }
     setLoading(false);
   };
 

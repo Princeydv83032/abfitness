@@ -18,6 +18,7 @@ import {
   FiChevronRight,
 } from "react-icons/fi";
 import { apiFetch } from "../../lib/api";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 import useAuthStore from "../../store/authStore";
 import { toast } from "../../lib/toast";
 
@@ -104,17 +105,24 @@ function MemberRow({ photo, name, subtitle, onClick }) {
 function OwnerDashboard() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
-  const [stats, setStats] = useState(null);
-  const [expiring, setExpiring] = useState([]);
-  const [pending, setPending] = useState([]);
-  const [memberList, setMemberList] = useState([]);
-  const [todayAttendance, setTodayAttendance] = useState([]);
+  // Dashboard 5 API calls karta hai - cache ke bina har baar wapas aane
+  // par poora skeleton aur poora wait. Ab cached data turant dikhta hai
+  // aur fresh data background mein aakar update karta hai
+  const cached = getCache("ownerDashboard");
+  const [stats, setStats] = useState(cached?.stats ?? null);
+  const [expiring, setExpiring] = useState(cached?.expiring ?? []);
+  const [pending, setPending] = useState(cached?.pending ?? []);
+  const [memberList, setMemberList] = useState(cached?.memberList ?? []);
+  const [todayAttendance, setTodayAttendance] = useState(
+    cached?.todayAttendance ?? [],
+  );
   const [statModal, setStatModal] = useState(null);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
 
   const fetchDashboard = async () => {
-    setLoading(true);
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache("ownerDashboard")) setLoading(true);
 
     const today = new Date().toISOString().split("T")[0];
     const month = new Date().toISOString().slice(0, 7);
@@ -157,12 +165,14 @@ function OwnerDashboard() {
     // Full member list + today's check-in list — stat tiles ke preview
     // modal ke liye (sirf count nahi, actual member data chahiye)
     const listRes = await apiFetch("/api/members/list");
-    setMemberList(listRes.success ? listRes.members : []);
+    const memberListData = listRes.success ? listRes.members : [];
+    setMemberList(memberListData);
 
     const todayAttRes = await apiFetch("/api/attendance/today");
-    setTodayAttendance(todayAttRes.success ? todayAttRes.attendance : []);
+    const todayAttData = todayAttRes.success ? todayAttRes.attendance : [];
+    setTodayAttendance(todayAttData);
 
-    setStats({
+    const nextStats = {
       activeMembers: activeCount || 0,
       expiring: expiringData?.length || 0,
       newThisMonth: newCount || 0,
@@ -170,9 +180,10 @@ function OwnerDashboard() {
       revenue,
       cash,
       upi,
-    });
+    };
+    setStats(nextStats);
 
-    setExpiring(
+    const nextExpiring =
       expiringData?.map((m) => ({
         ...m,
         daysLeft: Math.ceil(
@@ -183,10 +194,18 @@ function OwnerDashboard() {
           month: "short",
           year: "numeric",
         }),
-      })) || [],
-    );
+      })) || [];
+    setExpiring(nextExpiring);
 
     setPending(pendingData || []);
+
+    setCache("ownerDashboard", {
+      stats: nextStats,
+      expiring: nextExpiring,
+      pending: pendingData || [],
+      memberList: memberListData,
+      todayAttendance: todayAttData,
+    });
     setLoading(false);
   };
 
