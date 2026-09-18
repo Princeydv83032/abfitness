@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../lib/api";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 import useAuthStore from "../../store/authStore";
 import { toast } from "../../lib/toast";
 import {
@@ -66,25 +67,32 @@ function Profile() {
   const setMember = useAuthStore((state) => state.setMember);
   const logout = useAuthStore((state) => state.logout);
 
-  const [member, setMemberData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Tab wapas aane par cached data turant - skeleton sirf pehli baar
+  const cachedMember = getCache("profile");
+  const [member, setMemberData] = useState(cachedMember ?? null);
+  const [loading, setLoading] = useState(!cachedMember);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [showNotifPrefs, setShowNotifPrefs] = useState(false);
 
-  const [name, setName] = useState("");
-  const [goal, setGoal] = useState("");
-  const [photo, setPhoto] = useState("");
+  const [name, setName] = useState(cachedMember?.name || "");
+  const [goal, setGoal] = useState(cachedMember?.goal || "");
+  const [photo, setPhoto] = useState(cachedMember?.profile_photo || "");
 
   // Notification preferences — member khud set kare, isse pehle inhe
   // koi personalized reminder (workout time / supplements) nahi jaata
-  const [gymDays, setGymDays] = useState([]);
-  const [workoutTime, setWorkoutTime] = useState("06:00");
-  const [sleepTime, setSleepTime] = useState("22:00");
-  const [takesSupplements, setTakesSupplements] = useState(false);
-  const [supplementTime, setSupplementTime] = useState("09:00");
+  const cachedPrefs = cachedMember?.notification_prefs || {};
+  const [gymDays, setGymDays] = useState(cachedPrefs.gymDays || []);
+  const [workoutTime, setWorkoutTime] = useState(cachedPrefs.workoutTime || "06:00");
+  const [sleepTime, setSleepTime] = useState(cachedPrefs.sleepTime || "22:00");
+  const [takesSupplements, setTakesSupplements] = useState(
+    cachedPrefs.takesSupplements || false,
+  );
+  const [supplementTime, setSupplementTime] = useState(
+    cachedPrefs.supplementTime || "09:00",
+  );
 
   const goals = [
     "Build Muscle",
@@ -95,11 +103,13 @@ function Profile() {
   ];
 
   const fetchMember = async () => {
-    setLoading(true);
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache("profile")) setLoading(true);
     const res = await apiFetch("/api/members/me");
     const data = res.success ? res.member : null;
 
     if (data) {
+      setCache("profile", data);
       setMemberData(data);
       setName(data.name || "");
       setGoal(data.goal || "");

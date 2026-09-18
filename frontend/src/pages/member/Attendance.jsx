@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "../../lib/api";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 import useAuthStore from "../../store/authStore";
 import { useStreak } from "../../hooks/useStreak";
 import BadgePopup from "../../components/BadgePopup";
@@ -38,10 +39,12 @@ function Attendance() {
   const user = useAuthStore((state) => state.user);
   const { streak, badge, updateStreak, getStreakEmoji } = useStreak(user?.id);
 
-  const [attendance, setAttendance] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Tab wapas aane par cached data turant - skeleton sirf pehli baar
+  const cached = getCache("attendance");
+  const [attendance, setAttendance] = useState(cached?.attendance ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [checkingIn, setCheckingIn] = useState(false);
-  const [checkedToday, setCheckedToday] = useState(false);
+  const [checkedToday, setCheckedToday] = useState(cached?.checkedToday ?? false);
   const [showBadge, setShowBadge] = useState(false);
   const [locationError, setLocationError] = useState(null);
 
@@ -53,16 +56,21 @@ function Attendance() {
   }, [badge]);
 
   const fetchAttendance = async () => {
-    setLoading(true);
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache("attendance")) setLoading(true);
 
     // attendance table RLS-locked hai - verifyMember token se req.member.id
     // match karke deta hai
     const res = await apiFetch(`/api/attendance/me?month=${month}`);
 
     if (res.success) {
-      setAttendance(res.attendance);
       const todayRecord = res.attendance.find((a) => a.date === today);
+      setAttendance(res.attendance);
       setCheckedToday(!!todayRecord);
+      setCache("attendance", {
+        attendance: res.attendance,
+        checkedToday: !!todayRecord,
+      });
     }
     setLoading(false);
   };

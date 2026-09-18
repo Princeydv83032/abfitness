@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { IoWalletOutline, IoCashOutline } from 'react-icons/io5'
 import { FiPlus, FiSmartphone, FiX } from 'react-icons/fi'
 import { apiFetch } from '../../lib/api'
+import { getCache, setCache, hasCache } from '../../lib/pageCache'
 
 function PaymentsSkeleton() {
   return (
@@ -34,16 +35,21 @@ function PaymentsSkeleton() {
 
 function OwnerPayments() {
   const navigate             = useNavigate()
-  const [payments, setPayments] = useState([])
-  const [loading,  setLoading]  = useState(true)
+  // Tab wapas aane par cached list turant - skeleton sirf pehli baar
+  const [payments, setPayments] = useState(() => getCache('ownerPayments') ?? [])
+  const [loading,  setLoading]  = useState(() => !hasCache('ownerPayments'))
   const [filter,   setFilter]   = useState('all')
   const [preview,  setPreview]  = useState(null)
 
   const fetchPayments = async () => {
-    setLoading(true)
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache('ownerPayments')) setLoading(true)
     // payments table RLS-locked hai, owner-verified backend route se
     const res = await apiFetch('/api/payment/all')
-    if (res.success) setPayments(res.payments)
+    if (res.success) {
+      setPayments(res.payments)
+      setCache('ownerPayments', res.payments)
+    }
     setLoading(false)
   }
 

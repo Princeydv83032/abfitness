@@ -9,6 +9,7 @@ import {
 } from "react-icons/io5";
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiPlay } from "react-icons/fi";
 import { apiFetch } from "../../lib/api";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 import { toast } from "../../lib/toast";
 
 const DAY_ORDER = [
@@ -59,20 +60,24 @@ function VideosSkeleton() {
 
 function Videos() {
   const navigate = useNavigate();
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Tab wapas aane par cached list turant - skeleton sirf pehli baar
+  const [videos, setVideos] = useState(() => getCache("videos") ?? []);
+  const [loading, setLoading] = useState(() => !hasCache("videos"));
   const [loadError, setLoadError] = useState(false);
   const [playing, setPlaying] = useState(null);
   const [activeDay, setActiveDay] = useState("All");
 
   const fetchVideos = async () => {
-    setLoading(true);
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache("videos")) setLoading(true);
     setLoadError(false);
     try {
       // exercises table RLS-locked hai - owner-verified backend route se
       const res = await apiFetch("/api/exercises/videos");
-      if (res.success) setVideos(res.videos);
-      else setLoadError(true);
+      if (res.success) {
+        setVideos(res.videos);
+        setCache("videos", res.videos);
+      } else setLoadError(true);
     } catch (err) {
       // Network fail hone par (backend down, connection refused, etc.)
       // pehle yahan setLoading(false) kabhi chalta hi nahi tha - page
@@ -112,7 +117,9 @@ function Videos() {
     return <VideosSkeleton />;
   }
 
-  if (loadError) {
+  // Cached videos already dikh rahi hain to error screen mat dikhao -
+  // background refresh fail hua hai, purana data abhi bhi kaam ka hai
+  if (loadError && videos.length === 0) {
     return (
       <div className="min-h-screen bg-[#0d0d14] flex items-center justify-center px-6">
         <div className="text-center">

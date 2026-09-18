@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { IoSearchOutline, IoPeopleOutline } from "react-icons/io5";
 import { FiPlus, FiChevronRight } from "react-icons/fi";
 import { apiFetch } from "../../lib/api";
+import { getCache, setCache, hasCache } from "../../lib/pageCache";
 
 const statusConfig = {
   active: { label: "Active", color: "bg-emerald-500/15 text-emerald-400" },
@@ -45,15 +46,20 @@ function MembersListSkeleton() {
 
 function MembersList() {
   const navigate = useNavigate();
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Tab wapas aane par cached list turant - skeleton sirf pehli baar
+  const [members, setMembers] = useState(() => getCache("membersList") ?? []);
+  const [loading, setLoading] = useState(() => !hasCache("membersList"));
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
   const fetchMembers = async () => {
-    setLoading(true);
+    // Cache hai to skeleton mat dikhao - silently refresh karo
+    if (!hasCache("membersList")) setLoading(true);
     const res = await apiFetch("/api/members/list");
-    if (res.success) setMembers(res.members);
+    if (res.success) {
+      setMembers(res.members);
+      setCache("membersList", res.members);
+    }
     setLoading(false);
   };
 
